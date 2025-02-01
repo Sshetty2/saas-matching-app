@@ -1,0 +1,10 @@
+streamlit
+pyodbc
+pandas
+torch
+torchvision
+torchaudio
+transformers>=3.1.0
+sentence-transformers
+openai
+python-dotenv
