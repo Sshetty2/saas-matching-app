@@ -1,6 +1,5 @@
 from openai import OpenAI
 import json
-import numpy as np  # Ensure NumPy is imported
 import os
 from dotenv import load_dotenv
 
@@ -54,7 +53,7 @@ def analyze_cpe_matches(query_text, cpe_results):
     """
 
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model=os.getenv("AI_MODEL"),
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}

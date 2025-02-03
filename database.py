@@ -5,18 +5,29 @@ import streamlit as st
 
 load_dotenv()
 
-connection_string = (
-    "DRIVER={ODBC Driver 17 for SQL Server};"
-    "SERVER=localhost;"
-    f"DATABASE={os.getenv('DB_DATABASE')};"
-    "Trusted_Connection=yes;"
-)
+def init_db_connection():
+    connection_params = [
+        "DRIVER={ODBC Driver 17 for SQL Server}",
+        f"SERVER={os.getenv('DB_SERVER')}",
+        f"DATABASE={os.getenv('DB_NAME')}",
+    ]
+
+    if os.getenv('DB_USER') and os.getenv('DB_PASSWORD'):
+        connection_params.extend([
+            f"UID={os.getenv('DB_USER')}",
+            f"PWD={os.getenv('DB_PASSWORD')}"
+        ])
+    else:
+        connection_params.append("Trusted_Connection=yes")
+
+    connection_string = ";".join(connection_params) 
+
+    return connection_string
 
 def get_connection():
     """Establish a database connection."""
-    return pyodbc.connect(connection_string)
+    return pyodbc.connect(init_db_connection())
 
-@st.cache_data(ttl=300)  # Cache for 5 minutes
 def get_computers():
     """Fetch distinct ComputerNames."""
     try:

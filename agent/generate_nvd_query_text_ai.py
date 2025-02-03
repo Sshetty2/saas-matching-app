@@ -13,7 +13,7 @@ def generate_nvd_query_text(software_alias):
 
     # System prompt to enforce strict response formatting
     system_prompt = """
-    You are an assistant that extracts software names for querying the National Vulnerability Database (NVD).
+    Please extract software names for querying the National Vulnerability Database (NVD).
     Your task is to simplify software alias names for efficient database searches.
 
     **Formatting Rules:**
@@ -43,7 +43,7 @@ def generate_nvd_query_text(software_alias):
     user_prompt = f"Extract query text from: {software_alias}"
 
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model=os.getenv("AI_MODEL"),
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}

@@ -102,7 +102,6 @@ Below is a **visual representation** of how the app processes software and retri
 
 3️⃣ **Run the application**
 ```bash
-    streamlit run app/app.py
+    streamlit run streamlit_app.py
 ```
-
 

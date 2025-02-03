@@ -8,7 +8,7 @@ from typing import Tuple, List, Dict, Union
 load_dotenv()
 
 last_request_time = 0
-MIN_REQUEST_INTERVAL = 6
+MIN_REQUEST_INTERVAL = int(os.getenv("MIN_REQUEST_INTERVAL"))
 
 def query_nvd_api(software_name, api_key=None) -> Tuple[List, Dict[str, str]]:
     """Query NVD API for CPE matches with rate limiting.

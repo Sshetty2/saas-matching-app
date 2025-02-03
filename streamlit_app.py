@@ -50,48 +50,53 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("SaaS Installed Apps Scan")
 
-# Select Computer Name (Handles Empty List)
-computer_names = get_computers()
-if not computer_names:
-    st.error("No computers found in the database.")
-    st.stop()
 
-selected_computer = st.selectbox(
-    "Select a Computer Name",
-    options=computer_names,
-    key="computer_select",
-    on_change=on_computer_change
-)
-st.session_state.selected_computer = selected_computer
 
-# Select Scan ID (Dynamically Updates Based on Computer)
-scan_ids = get_scan_ids(selected_computer) if selected_computer else []
-if not scan_ids:
-    st.warning("No scans found for this computer.")
-    st.stop()
+col1, col2, col3 = st.columns([1, 2, 1])
 
-selected_scan = st.selectbox(
-    "Select a Scan ID",
-    options=scan_ids,
-    key="scan_select",
-    on_change=on_scan_change
-)
-st.session_state.selected_scan = selected_scan
+with col2:
+    st.title("SaaS Installed Apps Scan")
+    # Select Computer Name (Handles Empty List)
+    computer_names = get_computers()
+    if not computer_names:
+        st.error("No computers found in the database.")
+        st.stop()
 
-# Select Limit for Returned Applications
-limit_options = [1, 5, 10, 20, 30, 50, 100, "None"]
-selected_limit = st.selectbox(
-    "Limit number of results",
-    options=limit_options,
-    index=4,
-    key="limit_select"
-)
-st.session_state.selected_limit = selected_limit
+    selected_computer = st.selectbox(
+        "Select a Computer Name",
+        options=computer_names,
+        key="computer_select",
+        on_change=on_computer_change
+    )
+    st.session_state.selected_computer = selected_computer
+
+    # Select Scan ID (Dynamically Updates Based on Computer)
+    scan_ids = get_scan_ids(selected_computer) if selected_computer else []
+    if not scan_ids:
+        st.warning("No scans found for this computer.")
+        st.stop()
+
+    selected_scan = st.selectbox(
+        "Select a Scan ID",
+        options=scan_ids,
+        key="scan_select",
+        on_change=on_scan_change
+    )
+    st.session_state.selected_scan = selected_scan
+
+    # Select Limit for Returned Applications
+    limit_options = [1, 5, 10, 20, 30, 50, 100, "None"]
+    selected_limit = st.selectbox(
+        "Limit number of results",
+        options=limit_options,
+        index=4,
+        key="limit_select"
+    )
+    st.session_state.selected_limit = selected_limit
 
 # Run Scan Button
-if st.button("Run Scan"):
+if col2.button("Run Scan"):
     if st.session_state.selected_computer and st.session_state.selected_scan:
         with st.spinner("Running scan... please wait ⏳"):
             st.session_state.nvd_api_errors = []

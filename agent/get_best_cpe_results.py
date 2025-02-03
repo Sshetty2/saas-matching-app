@@ -2,7 +2,7 @@ import os
 from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
-from query_nvd_api import query_nvd_api
+from queries.query_nvd_api import query_nvd_api
 import streamlit as st
 load_dotenv()
 
