@@ -32,7 +32,7 @@ db_connection = get_pyodbc_connection()
 def get_cpe_records():
     """Get the CPE records from the database."""
 
-    query = f"SELECT ConfigurationsName, Vendor FROM tb_CPEConfiguration"
+    query = f"SELECT ConfigurationsName, Vendor, Product FROM tb_CPEConfiguration"
     cursor = db_connection.cursor()
     query = wrap_query_with_json_instructions(query)
     cursor.execute(query)
@@ -67,8 +67,10 @@ def process_cpe_vectors():
                 cpeText = cpe["ConfigurationsName"]
                 cpe_texts.append(cpeText)
                 vendor = cpe["Vendor"]
+                product = cpe["Product"]
                 metadata = {
                     "vendor": vendor,
+                    "product": product,
                 }
                 metadata_records.append(metadata)
 

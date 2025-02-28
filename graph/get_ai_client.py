@@ -2,7 +2,7 @@ import os
 from ollama import AsyncClient
 from openai import AsyncOpenAI
 
-DEFAULT_MODEL = "deepseek-r1:7b"
+DEFAULT_MODEL = "llama3.1"
 DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
 
 

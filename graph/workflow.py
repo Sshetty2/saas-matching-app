@@ -1,4 +1,5 @@
 import os
+from typing import Literal
 from langgraph.graph import StateGraph, START, END
 from openai import AsyncOpenAI
 from graph.workflow_state import WorkflowState
@@ -15,19 +16,29 @@ tracemalloc.start()
 
 openai_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 logger = configure_logging()
+use_vector_store = os.getenv("USE_VECTOR_STORE", "True").lower() == "true"
+
+
+def should_use_vector_store(state) -> Literal["find_matches", "query_database"]:
+    ## if not using vector store, we need to query the database
+
+    if use_vector_store:
+        return "find_matches"
+    else:
+        return "query_database"
 
 
 async def workflow():
     workflow = StateGraph(WorkflowState)
 
-    db_connection = get_pyodbc_connection()
-
     workflow.add_node("parse_alias", parse_alias)
     workflow.add_node("find_matches", find_matches)
     workflow.add_node("analyze_matches", analyze_matches)
+    workflow.add_node("query_database", query_database)
 
     workflow.add_edge(START, "parse_alias")
-    workflow.add_edge("parse_alias", "find_matches")
+    workflow.add_conditional_edges("parse_alias", should_use_vector_store)
+    workflow.add_edge("query_database", "find_matches")
     workflow.add_edge("find_matches", "analyze_matches")
     workflow.add_edge("analyze_matches", END)
 
@@ -36,6 +47,7 @@ async def workflow():
 
 async def run_workflow(software_alias: str):
     agent = await workflow()
+    db_connection = get_pyodbc_connection()
 
     initial_state = {
         "software_alias": software_alias,
@@ -45,6 +57,7 @@ async def run_workflow(software_alias: str):
         "top_matches": [],
         "error": None,
         "info": None,
+        "db_connection": db_connection,
     }
 
     try:
@@ -53,7 +66,7 @@ async def run_workflow(software_alias: str):
         ):
             return await agent.ainvoke(initial_state)
     except Exception as e:
-        logger.error(f"Error running workflow: {e}")
+        logger.error(f"Error running workflow for alias: {software_alias}; {e}")
 
 
 async def run_workflows_parallel(software_aliases: list[str]):

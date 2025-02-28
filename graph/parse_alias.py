@@ -7,10 +7,13 @@ from logging_config import log_execution_time
 from openai import AsyncOpenAI
 from dotenv import load_dotenv
 from graph.get_ai_client import get_ai_client
+from graph.workflow_state import SoftwareInfoPydantic
 
 load_dotenv()
 
 logger = logging.getLogger(__name__)
+
+use_local_model = os.getenv("USE_LOCAL_MODEL", "False").lower() == "true"
 
 
 async def parse_alias(state: WorkflowState) -> WorkflowState:
@@ -73,30 +76,57 @@ async def parse_alias(state: WorkflowState) -> WorkflowState:
     model, completion_function = get_ai_client()
 
     with log_execution_time(logger, f"Parsing Software Alias {software_alias}"):
-        for attempt in range(3):
-            try:
-                response = await completion_function(
-                    model=model,
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt},
-                    ],
-                    temperature=0.7,
-                    response_format={"type": "json_object"},
-                )
+        try:
 
-                result = response.choices[0].message.content.strip()
-                result = json.loads(result)
-                break
-            except Exception as e:
-                logger.error(f"Error parsing alias (attempt {attempt+1}/3): {e}")
-                if attempt == 2:
-                    return {
-                        "__end__": True,
-                        **state,
-                        "error": str(e),
-                        "info": "Error parsing alias after 3 attempts",
-                    }
+            if use_local_model:
+                args = {
+                    "format": SoftwareInfoPydantic.model_json_schema(),
+                    "stream": False,
+                }
+            else:
+                args = {
+                    "temperature": 0.3,
+                    "response_format": {"type": "json_object"},
+                }
+
+            response = await completion_function(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                **args,
+            )
+
+            if use_local_model:
+                software_info = SoftwareInfoPydantic.model_validate_json(
+                    response.message.content
+                )
+                result = software_info.model_dump()
+            else:
+                result_text = response.choices[0].message.content.strip()
+
+                try:
+                    result = json.loads(result_text)
+                except json.JSONDecodeError:
+                    import re
+
+                    json_match = re.search(
+                        r"({.*})", result_text.replace("\n", ""), re.DOTALL
+                    )
+                    if json_match:
+                        result = json.loads(json_match.group(1))
+                    else:
+                        raise ValueError("Could not parse JSON from model response")
+
+        except Exception as e:
+            logger.error(f"Parsing error for alias: {software_alias}; {e}")
+            return {
+                "__end__": True,
+                **state,
+                "error": str(e),
+                "info": "Error parsing alias",
+            }
 
     logger.info(f"Parsed alias: {result}")
     return {**state, "software_info": result}

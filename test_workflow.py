@@ -15,7 +15,6 @@ if __name__ == "__main__":
     result = asyncio.run(
         run_workflows_parallel(
             [
-                "Microsoft SQL Server 2005 Compact Edition [ENU]",
                 "Microsoft Visual C++ 2008 Redistributable - x86 9.0.30729.4974",
             ]
         )

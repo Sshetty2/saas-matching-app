@@ -1,7 +1,17 @@
 from typing import Optional, TypedDict
+from pydantic import BaseModel
+import pyodbc
 
 
 class AnalysisResult(TypedDict):
+    match_type: str
+    confidence_score: int
+    matched_cpe: str
+    title: str
+    reasoning: str
+
+
+class AnalysisResultPydantic(BaseModel):
     match_type: str
     confidence_score: int
     matched_cpe: str
@@ -15,6 +25,12 @@ class SoftwareInfo(TypedDict):
     version: str
 
 
+class SoftwareInfoPydantic(BaseModel):
+    product: str
+    vendor: str
+    version: str
+
+
 class WorkflowState(TypedDict):
     software_alias: str
     software_info: Optional[SoftwareInfo]
@@ -23,6 +39,7 @@ class WorkflowState(TypedDict):
     top_matches: Optional[list]
     error: Optional[str]
     info: Optional[str]
+    db_connection: Optional[pyodbc.Connection]
 
 
 class CPEResult(TypedDict):

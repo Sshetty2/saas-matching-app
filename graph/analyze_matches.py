@@ -2,19 +2,21 @@ import os
 import json
 from textwrap import dedent
 from ollama import AsyncClient
-from graph.workflow_state import WorkflowState, AnalysisResult
+from graph.workflow_state import WorkflowState, AnalysisResultPydantic
 from graph.get_ai_client import get_ai_client
 from logging_config import log_execution_time
 import logging
 
 logger = logging.getLogger(__name__)
 
+use_local_model = os.getenv("USE_LOCAL_MODEL", "False").lower() == "true"
 
 system_prompt = dedent(
     """
     We are trying to match a software alias name to a CPE record.
     Please try to determine whether the given CPE records match the query software name accurately.
     The CPE records contain the product name and sometimes the version number along with wildcards that indicate a match to other software.
+    It should be pretty obvious if the CPE matches the software name but at times it may not be very clear so you should adjust your confidence score accordingly.
 
     ### Evaluation Criteria:
     - An **exact match** requires the product name and version to be identical.
@@ -72,11 +74,27 @@ async def analyze_matches(state: WorkflowState) -> WorkflowState:
     )
 
     if not top_matches:
-        return {"__end__": True, **state, "info": "No matches found"}
+        return {
+            "__end__": True,
+            **state,
+            "match_type": "No Match",
+            "info": "No matches found",
+        }
 
-    with log_execution_time(logger, f"Analyzing Matches {software_alias}"):
+    with log_execution_time(logger, f"Analyzing Matches for alias: {software_alias}"):
         try:
             model, completion_function = get_ai_client()
+
+            if use_local_model:
+                args = {
+                    "format": AnalysisResultPydantic.model_json_schema(),
+                    "stream": False,
+                }
+            else:
+                args = {
+                    "temperature": 0.5,
+                    "response_format": {"type": "json_object"},
+                }
 
             response = await completion_function(
                 model=model,
@@ -84,34 +102,43 @@ async def analyze_matches(state: WorkflowState) -> WorkflowState:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
-                format="json",
-                temperature=0.7,
+                **args,
             )
 
-            result_text = response["message"]["content"].strip()
-
-            try:
-                result = json.loads(result_text)
-            except json.JSONDecodeError:
-                import re
-
-                json_match = re.search(
-                    r"({.*})", result_text.replace("\n", ""), re.DOTALL
+            if use_local_model:
+                analysis_result = AnalysisResultPydantic.model_validate_json(
+                    response.message.content
                 )
-                if json_match:
-                    result = json.loads(json_match.group(1))
-                else:
-                    raise ValueError("Could not parse JSON from model response")
+
+                result = analysis_result.model_dump()
+            else:
+                result_text = response.choices[0].message.content.strip()
+
+                try:
+                    result = json.loads(result_text)
+                except json.JSONDecodeError:
+                    import re
+
+                    json_match = re.search(
+                        r"({.*})", result_text.replace("\n", ""), re.DOTALL
+                    )
+                    if json_match:
+                        result = json.loads(json_match.group(1))
+                    else:
+                        raise ValueError(
+                            f"Could not parse JSON from model response for alias: {software_alias}"
+                        )
 
         except Exception as e:
-            logger.error(f"Error analyzing matches: {e}")
+            logger.error(f"Error analyzing matches for alias: {software_alias}; {e}")
             return {
                 "__end__": True,
                 **state,
+                "match_type": "No Match",
                 "error": str(e),
                 "info": "Error analyzing matches",
             }
 
     logger.info(f"Analyzed matches for {software_alias}: {result}")
-    ## Clear cpe results to trim output body
-    return {**state, "cpe_results": [], "cpe_match": result}
+    ## Clear cpe results and db connection to trim output body
+    return {**state, "cpe_results": [], "db_connection": None, "cpe_match": result}

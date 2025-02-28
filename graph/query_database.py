@@ -18,10 +18,9 @@ vendor_and_product_query = (
 )
 product_query = f"SELECT * FROM {cpe_table_name} WHERE product LIKE ?"
 vendor_query = f"SELECT * FROM {cpe_table_name} WHERE vendor LIKE ?"
-db_connection = get_pyodbc_connection()
 
 
-def execute_query(query, params, query_type):
+def execute_query(query, params, query_type, db_connection):
     logger.info(
         f"Executing query: {query} with params: {params} and query_type: {query_type}"
     )
@@ -47,6 +46,7 @@ def query_database(state: WorkflowState) -> WorkflowState:
     product = software_info.get("product", "")
     vendor = software_info.get("vendor", "")
     version = software_info.get("version", "")
+    db_connection = state.get("db_connection", None)
 
     query_type = None
 
@@ -57,23 +57,37 @@ def query_database(state: WorkflowState) -> WorkflowState:
         try:
             while not results and attempts <= 3:
                 if attempts == 1:
+                    if not product or product == "N/A" or not vendor or vendor == "N/A":
+                        attempts += 1
+                        continue
                     query_type = "vendor_and_product"
                     results = execute_query(
                         vendor_and_product_query,
                         (f"%{product}%", f"%{vendor}%"),
                         query_type,
+                        db_connection,
                     )
                 elif attempts == 2:
+                    if not product or product == "N/A":
+                        attempts += 1
+                        continue
                     query_type = "product"
-                    results = execute_query(product_query, (f"%{product}%"), query_type)
+                    results = execute_query(
+                        product_query, (f"%{product}%"), query_type, db_connection
+                    )
                 elif attempts == 3:
+                    if not vendor or vendor == "N/A":
+                        attempts += 1
+                        continue
                     query_type = "vendor"
-                    results = execute_query(vendor_query, (f"%{vendor}%"), query_type)
+                    results = execute_query(
+                        vendor_query, (f"%{vendor}%"), query_type, db_connection
+                    )
                 if results:
                     break
                 attempts += 1
         except Exception as e:
-            logger.error(f"Failed to fetch schema: {e}")
+            logger.error(f"Failed to fetch results for alias: {software_alias}; {e}")
             return {"__end__": True, **state, "error": str(e)}
 
         if results:
@@ -82,9 +96,12 @@ def query_database(state: WorkflowState) -> WorkflowState:
             )
             return {**state, "cpe_results": results}
         else:
-            logger.info("No results found from CPE Database")
+            logger.info(
+                f"No results found from CPE Database for alias: {software_alias}"
+            )
             return {
                 "__end__": True,
                 **state,
+                "match_type": "No Match",
                 "info": "No results found from CPE Database",
             }
