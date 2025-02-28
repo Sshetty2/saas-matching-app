@@ -1,2 +1,4 @@
 *.pyc
 .env
+vector_store*
+logs/

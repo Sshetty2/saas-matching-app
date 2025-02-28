@@ -7,4 +7,11 @@ torchaudio
 transformers>=3.1.0
 sentence-transformers
 openai
-python-dotenv
+langgraph
+pydantic
+python-json-logger
+pydantic-settings
+langchain-community
+langchain_huggingFace
+tqdm 
+ollama

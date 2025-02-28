@@ -1,0 +1,25 @@
+[flake8]
+max-line-length = 120
+extend-ignore = 
+    E203,  # whitespace before ':'
+    E231,  # missing whitespace after ','
+    E266,  # too many leading '#' for block comment
+    E302,  # expected 2 blank lines
+    E402,  # module level import not at top of file
+    E501,  # line too long
+    W503,  # line break before binary operator
+    F403,  # 'from module import *' used
+    F405   # name may be undefined, or defined from star imports
+exclude =
+    .git,
+    __pycache__,
+    build,
+    dist,
+    *.egg-info,
+    venv,
+    .venv,
+    .env,
+    .tox,
+    .pytest_cache,
+    .coverage,
+    htmlcov
