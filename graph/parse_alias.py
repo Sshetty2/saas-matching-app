@@ -1,23 +1,15 @@
-import os
-import json
 from textwrap import dedent
 from graph.workflow_state import WorkflowState
 import logging
 from logging_config import log_execution_time
-from openai import AsyncOpenAI
-from dotenv import load_dotenv
 from graph.get_ai_client import get_ai_client
 from graph.workflow_state import SoftwareInfoPydantic
 
-load_dotenv()
-
 logger = logging.getLogger(__name__)
-
-use_local_model = os.getenv("USE_LOCAL_MODEL", "False").lower() == "true"
 
 
 async def parse_alias(state: WorkflowState) -> WorkflowState:
-    """Please generate a clean, base query for the NVD API using a system prompt for formatting."""
+    """Generates a clean, base query for the NVD API using a system prompt for formatting."""
 
     system_prompt = dedent(
         f"""
@@ -32,7 +24,6 @@ async def parse_alias(state: WorkflowState) -> WorkflowState:
         If any value is **unclear or missing**, return **"N/A"** instead of making an assumption.
 
         The output should be a JSON object with the following keys:
-        - **software_alias**: The original software alias string.
         - **vendor**: The vendor name.
         - **product**: The product name.
         - **version**: The version number.
@@ -44,7 +35,6 @@ async def parse_alias(state: WorkflowState) -> WorkflowState:
         Software Alias: 'jetbrains pycharm 2019.3'
         Extracted Output:
         {{
-            "software_alias": "jetbrains pycharm 2019.3",
             "vendor": "JetBrains",
             "product": "PyCharm",
             "version": "2019.3"
@@ -53,7 +43,6 @@ async def parse_alias(state: WorkflowState) -> WorkflowState:
         Software Alias: 'WinRAR 4.01 (32-bit) (v4.01.0)'
         Extracted Output:
         {{
-            "software_alias": "WinRAR 4.01 (32-bit) (v4.01.0)",
             "vendor": "RARLAB",
             "product": "WinRAR",
             "version": "4.01"
@@ -62,7 +51,6 @@ async def parse_alias(state: WorkflowState) -> WorkflowState:
         Software Alias: 'francisco cifuentes vote for tt news 1.0.1'
         Extracted Output:
         {{
-            "software_alias": "francisco cifuentes vote for tt news 1.0.1",
             "vendor": "N/A",
             "product": "N/A",
             "version": "1.0.1"
@@ -71,53 +59,22 @@ async def parse_alias(state: WorkflowState) -> WorkflowState:
     )
 
     software_alias = state.get("software_alias", "")
-    user_prompt = f"Extract query text from: {software_alias}"
+    user_prompt = dedent(
+        f"""
+        ### Please extract the vendor, product, and version from the following software alias: 
+        ##### {software_alias}
+        """
+    )
+    logger.info(f"Parsing Software Alias for {software_alias}")
 
-    model, completion_function = get_ai_client()
+    completion_function, model_args, parse_response_function = get_ai_client(
+        SoftwareInfoPydantic, system_prompt, user_prompt
+    )
 
     with log_execution_time(logger, f"Parsing Software Alias {software_alias}"):
         try:
-
-            if use_local_model:
-                args = {
-                    "format": SoftwareInfoPydantic.model_json_schema(),
-                    "stream": False,
-                }
-            else:
-                args = {
-                    "temperature": 0.3,
-                    "response_format": {"type": "json_object"},
-                }
-
-            response = await completion_function(
-                model=model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                **args,
-            )
-
-            if use_local_model:
-                software_info = SoftwareInfoPydantic.model_validate_json(
-                    response.message.content
-                )
-                result = software_info.model_dump()
-            else:
-                result_text = response.choices[0].message.content.strip()
-
-                try:
-                    result = json.loads(result_text)
-                except json.JSONDecodeError:
-                    import re
-
-                    json_match = re.search(
-                        r"({.*})", result_text.replace("\n", ""), re.DOTALL
-                    )
-                    if json_match:
-                        result = json.loads(json_match.group(1))
-                    else:
-                        raise ValueError("Could not parse JSON from model response")
+            response = await completion_function(**model_args)
+            result = parse_response_function(response, SoftwareInfoPydantic)
 
         except Exception as e:
             logger.error(f"Parsing error for alias: {software_alias}; {e}")

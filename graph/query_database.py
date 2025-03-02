@@ -1,17 +1,13 @@
-import os
-from pyodbc import Connection
-from dotenv import load_dotenv
-from graph.workflow_state import WorkflowState
 import logging
+from graph.workflow_state import WorkflowState
 from logging_config import log_execution_time
 from database.connection import get_pyodbc_connection, wrap_query_with_json_instructions
 import json
+from config import settings
 
 logger = logging.getLogger(__name__)
 
-load_dotenv()
-
-cpe_table_name = os.getenv("CPE_TABLE_NAME")
+cpe_table_name = settings.db.db_table
 
 vendor_and_product_query = (
     f"SELECT * FROM {cpe_table_name} WHERE product LIKE ? AND vendor LIKE ?"
@@ -46,15 +42,17 @@ def query_database(state: WorkflowState) -> WorkflowState:
     product = software_info.get("product", "")
     vendor = software_info.get("vendor", "")
     version = software_info.get("version", "")
-    db_connection = state.get("db_connection", None)
 
     query_type = None
+
+    db_connection = get_pyodbc_connection()
 
     with log_execution_time(
         logger,
         f"Querying Database for {software_alias}",
     ):
         try:
+
             while not results and attempts <= 3:
                 if attempts == 1:
                     if not product or product == "N/A" or not vendor or vendor == "N/A":

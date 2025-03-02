@@ -3,9 +3,7 @@
 import os
 import pyodbc
 from langchain_community.utilities import SQLDatabase
-from dotenv import load_dotenv
-
-load_dotenv()
+from config import settings
 
 
 def wrap_query_with_json_instructions(query):
@@ -17,13 +15,16 @@ def build_connection_string():
 
     connection_params = [
         "DRIVER={ODBC Driver 17 for SQL Server}",
-        f"SERVER={os.getenv('DB_SERVER')}",
-        f"DATABASE={os.getenv('DB_NAME')}",
+        f"SERVER={settings.db.db_server}",
+        f"DATABASE={settings.db.db_name}",
     ]
 
-    if os.getenv("DB_USER") and os.getenv("DB_PASSWORD"):
+    if settings.db.db_user and settings.db.db_password:
         connection_params.extend(
-            [f"UID={os.getenv('DB_USER')}", f"PWD={os.getenv('DB_PASSWORD')}"]
+            [
+                f"UID={settings.db.db_user}",
+                f"PWD={settings.db.db_password.get_secret_value()}",
+            ]
         )
     else:
         connection_params.append("Trusted_Connection=yes")

@@ -3,28 +3,33 @@ from pydantic import BaseModel
 import pyodbc
 
 
+## TODO: consolidate models
+
+
+# need seperate model langchain validation
 class AnalysisResult(TypedDict):
     match_type: str
     confidence_score: int
     matched_cpe: str
-    title: str
     reasoning: str
 
 
+# need seperate model langchain validation
 class AnalysisResultPydantic(BaseModel):
     match_type: str
     confidence_score: int
     matched_cpe: str
-    title: str
     reasoning: str
 
 
+# need seperate model langchain validation
 class SoftwareInfo(TypedDict):
     product: str
     vendor: str
     version: str
 
 
+## need seperate model for validation
 class SoftwareInfoPydantic(BaseModel):
     product: str
     vendor: str
@@ -39,7 +44,6 @@ class WorkflowState(TypedDict):
     top_matches: Optional[list]
     error: Optional[str]
     info: Optional[str]
-    db_connection: Optional[pyodbc.Connection]
 
 
 class CPEResult(TypedDict):

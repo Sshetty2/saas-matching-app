@@ -4,7 +4,6 @@
 
 
 import os
-from dotenv import load_dotenv
 from store.save_vector_store import save_vector_store
 from database.connection import get_pyodbc_connection, wrap_query_with_json_instructions
 from sentence_transformers import SentenceTransformer
@@ -12,19 +11,19 @@ from langchain_community.vectorstores import InMemoryVectorStore
 from logging_config import log_execution_time, configure_logging
 from langchain_huggingface import HuggingFaceEmbeddings
 from store.get_embedding_model import get_embedding_model
+from config import settings
 from tqdm import tqdm
 import time
 
 import json
 import logging
 
-load_dotenv()
 
 configure_logging()
 
 logger = logging.getLogger(__name__)
 
-cpe_table_name = os.getenv("CPE_TABLE_NAME")
+cpe_table_name = settings.db.db_table
 
 db_connection = get_pyodbc_connection()
 
@@ -32,7 +31,7 @@ db_connection = get_pyodbc_connection()
 def get_cpe_records():
     """Get the CPE records from the database."""
 
-    query = f"SELECT ConfigurationsName, Vendor, Product FROM tb_CPEConfiguration"
+    query = f"SELECT * FROM tb_CPEConfiguration"
     cursor = db_connection.cursor()
     query = wrap_query_with_json_instructions(query)
     cursor.execute(query)
@@ -66,12 +65,7 @@ def process_cpe_vectors():
             for cpe in cpe_records:
                 cpeText = cpe["ConfigurationsName"]
                 cpe_texts.append(cpeText)
-                vendor = cpe["Vendor"]
-                product = cpe["Product"]
-                metadata = {
-                    "vendor": vendor,
-                    "product": product,
-                }
+                metadata = cpe
                 metadata_records.append(metadata)
 
             total_records = len(cpe_texts)

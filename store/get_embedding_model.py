@@ -1,7 +1,8 @@
 from langchain_huggingface import HuggingFaceEmbeddings
+from config import settings
 
 embedding_model = HuggingFaceEmbeddings(
-    model_name="all-MiniLM-L6-v2",
+    model_name=settings.llm.embedding_model,
 )
 
 

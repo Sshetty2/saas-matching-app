@@ -9,10 +9,12 @@ import logging
 from logging_config import log_execution_time
 from langchain_core.documents import Document
 from thefuzz import fuzz
+from config import settings
 
 logger = logging.getLogger(__name__)
 
-use_vector_store = os.getenv("USE_VECTOR_STORE", "True").lower() == "true"
+use_vector_store = settings.execution.use_vector_store
+embedding_model_name = settings.llm.embedding_model
 
 if use_vector_store:
     with log_execution_time(logger, "Loading Vector Store"):
@@ -32,20 +34,26 @@ async def search_with_vendor_filter(query: str, vendor: str, product: str, k: in
     vendor_name = vendor.lower()
     product_name = product.lower()
 
-    def vendor_filter(doc: Document) -> bool:
+    def vendor_product_filter(doc: Document) -> bool:
         """Filter documents by vendor name in metadata."""
         doc_vendor = doc.metadata.get("vendor", "")
         doc_product = doc.metadata.get("product", "")
         doc_vendor = doc_vendor.lower()
         doc_product = doc_product.lower()
 
-        passes_vendor_filter = check_fuzz_score(doc_vendor, vendor_name, 60)
-        passes_product_filter = check_fuzz_score(doc_product, product_name, 60)
+        passes_vendor_filter = True
+        passes_product_filter = True
 
-        return passes_vendor_filter and passes_product_filter
+        if doc_vendor != "" or doc_vendor == "N/A":
+            passes_vendor_filter = check_fuzz_score(doc_vendor, vendor_name, 60)
+
+        if doc_product != "" or doc_product == "N/A":
+            passes_product_filter = check_fuzz_score(doc_product, product_name, 60)
+
+        return passes_vendor_filter or passes_product_filter
 
     results = await vector_store.asimilarity_search_with_score(
-        query, k=k, filter=vendor_filter
+        query, k=k, filter=vendor_product_filter
     )
 
     return results
@@ -59,14 +67,20 @@ async def find_matches(state: WorkflowState) -> WorkflowState:
 
 
 async def find_matches_with_vector_store(state):
-    """Get top 3 best CPE matches for a given software configuration."""
+    """
+    Get top 3 best CPE matches for a given software configuration using a vector store which needs to have been saved to disk prior to running this workflow.
+    The vector store must be saved to disk prior to running this workflow with a manual operation. If the workflow should run without the vector store,
+    set the USE_VECTOR_STORE environment variable to False.
+    """
+    software_alias = state.get("software_alias", "")
+
+    logger.info(f"Finding top 3 CPE Matches for alias: {software_alias}")
 
     with log_execution_time(logger, "Finding Matches"):
-        software_alias = state.get("software_alias", "")
         vendor = state.get("software_info", {}).get("vendor", "")
         product = state.get("software_info", {}).get("product", "")
 
-        if vendor == "" and product == "":
+        if vendor == "" and product == "" or vendor == "N/A" and product == "N/A":
             logger.error(f"No vendor or product found for {software_alias}")
             return {
                 "__end__": True,
@@ -95,11 +109,13 @@ async def find_matches_with_vector_store(state):
 
 
 async def find_matches_without_vector_store(state):
-    """Get top 3 best CPE matches for a given software alias"""
+    """
+    Get top 3 best CPE matches for a given software alias using a database query.
+    This workflow is slower than the one with the vector store because it embeds the cpe records at runtime.
+    To use the vector store, set the USE_VECTOR_STORE environment variable to True and manually process cpe records to disk with process_cpe_records.py.
+    """
     software_alias = state.get("software_alias", "")
     cpe_results = state.get("cpe_results", [])
-
-    logger.info(f"Finding top 3 CPE Matches for alias: {software_alias}")
 
     if not cpe_results:
         logger.info("No CPE results found")
@@ -110,25 +126,47 @@ async def find_matches_without_vector_store(state):
             "info": "No CPE results found from the database",
         }
 
-    try:
-        model = SentenceTransformer("all-MiniLM-L6-v2")
+    logger.info(f"Finding top 3 CPE Matches for alias: {software_alias}")
 
-        cpe_texts = [cpe["ConfigurationsName"] for cpe in cpe_results]
+    with log_execution_time(logger, f"Finding Matches for software: {software_alias}"):
+        try:
+            model = SentenceTransformer(embedding_model_name)
 
-        encoded_query = model.encode([software_alias])
-        encoded_results = model.encode(cpe_texts)
+            cpe_texts = [cpe["ConfigurationsName"] for cpe in cpe_results]
 
-        similarities = cosine_similarity(encoded_query, encoded_results).flatten()
+            encoded_query = model.encode([software_alias])
+            encoded_results = model.encode(cpe_texts)
 
-        ranked_results = sorted(
-            zip(cpe_results, similarities), key=lambda x: x[1], reverse=True
-        )
+            similarities = cosine_similarity(encoded_query, encoded_results).flatten()
 
-        top_matches = ranked_results[:3]
-        logger.info(f"Top 3 CPE Matches for {software_alias}: {top_matches}")
+            ranked_results = []
+            for i, (cpe, similarity) in enumerate(zip(cpe_results, similarities)):
+                filtered_cpe = {
+                    "CPE_ID": cpe.get("ConfigurationsName", ""),
+                    "Vendor": cpe.get("Vendor", ""),
+                    "Product": cpe.get("Product", ""),
+                    "Version": cpe.get("Version", ""),
+                    "Updates": cpe.get("Updates", ""),
+                    "Edition": cpe.get("Edition", ""),
+                    "SW_Edition": cpe.get("SW_Edition", ""),
+                    "Target_SW": cpe.get("Target_SW", ""),
+                    "Target_HW": cpe.get("Target_HW", ""),
+                    "similarity_score": round(float(similarity), 2),
+                }
+                ranked_results.append(filtered_cpe)
 
-    except Exception as e:
-        logger.error(f"Error finding matches for alias: {software_alias}; {e}")
-        return {**state, "error": str(e)}
+            ranked_results.sort(key=lambda x: x["similarity_score"], reverse=True)
+
+            top_matches = ranked_results[:3]
+
+            for match in top_matches:
+                if "similarity_score" in match:
+                    del match["similarity_score"]
+
+            logger.info(f"Top 3 CPE Matches for {software_alias}: {top_matches}")
+
+        except Exception as e:
+            logger.error(f"Error finding matches for alias: {software_alias}; {e}")
+            return {**state, "error": str(e)}
 
     return {**state, "top_matches": top_matches}

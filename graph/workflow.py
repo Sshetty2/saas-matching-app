@@ -7,21 +7,20 @@ from graph.parse_alias import parse_alias
 from graph.query_database import query_database
 from graph.find_matches import find_matches
 from graph.analyze_matches import analyze_matches
-from database.connection import get_pyodbc_connection
 from logging_config import log_execution_time, configure_logging
 import asyncio
 import tracemalloc
+from config import settings
 
+logger = configure_logging()
 tracemalloc.start()
 
-openai_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-logger = configure_logging()
-use_vector_store = os.getenv("USE_VECTOR_STORE", "True").lower() == "true"
+openai_api_key = settings.llm.openai_api_key
+openai_client = AsyncOpenAI(api_key=openai_api_key)
+use_vector_store = settings.execution.use_vector_store
 
 
 def should_use_vector_store(state) -> Literal["find_matches", "query_database"]:
-    ## if not using vector store, we need to query the database
-
     if use_vector_store:
         return "find_matches"
     else:
@@ -47,7 +46,6 @@ async def workflow():
 
 async def run_workflow(software_alias: str):
     agent = await workflow()
-    db_connection = get_pyodbc_connection()
 
     initial_state = {
         "software_alias": software_alias,
@@ -57,7 +55,6 @@ async def run_workflow(software_alias: str):
         "top_matches": [],
         "error": None,
         "info": None,
-        "db_connection": db_connection,
     }
 
     try:

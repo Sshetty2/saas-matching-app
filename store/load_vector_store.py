@@ -6,6 +6,7 @@ from store.vector_path import VECTOR_STORE_PATH
 import traceback
 import logging
 
+
 logger = logging.getLogger(__name__)
 
 
