@@ -21,7 +21,7 @@ async def parse_alias(state: WorkflowState) -> WorkflowState:
         - **Version** is the specific release number (if available).
 
         This information will be used to **query a database for similar records** using SQL, so accuracy and generalization are important.  
-        If any value is **unclear or missing**, return **"N/A"** instead of making an assumption.
+        If any value is **unclear or missing**, return **"N/A"**, though it may be neccessary to infer the vendor name based on the product.
 
         The output should be a JSON object with the following keys:
         - **vendor**: The vendor name.
@@ -68,7 +68,7 @@ async def parse_alias(state: WorkflowState) -> WorkflowState:
     logger.info(f"Parsing Software Alias for {software_alias}")
 
     completion_function, model_args, parse_response_function = get_ai_client(
-        SoftwareInfoPydantic, system_prompt, user_prompt
+        SoftwareInfoPydantic, system_prompt, user_prompt, mode="parse"
     )
 
     with log_execution_time(logger, f"Parsing Software Alias {software_alias}"):

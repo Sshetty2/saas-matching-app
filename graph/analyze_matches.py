@@ -2,6 +2,7 @@ from textwrap import dedent
 from graph.workflow_state import WorkflowState, AnalysisResultPydantic
 from graph.get_ai_client import get_ai_client
 from logging_config import log_execution_time
+from graph.format_utils import format_software_info, format_cpe_matches
 import logging
 import json
 
@@ -67,7 +68,7 @@ system_prompt = dedent(
 
     Please do not return anything except valid JSON.
     """
-).strip("\n")
+)
 
 
 async def analyze_matches(state: WorkflowState) -> WorkflowState:
@@ -75,24 +76,23 @@ async def analyze_matches(state: WorkflowState) -> WorkflowState:
     software_alias = state.get("software_alias", "")
     software_info = state.get("software_info", {})
 
+    formatted_software_info = format_software_info(software_info)
+    formatted_cpe_matches = format_cpe_matches(top_matches)
+
     user_prompt = dedent(
         f"""
         ### The original software alias name is: "{software_alias}"
 
         ### The software info is:
-        ```json
-        {json.dumps(software_info, indent=2)}
-        ```
+        {formatted_software_info}
 
         ### The top 3 CPE results from cosine similarity search:
-        ```json
-        {json.dumps(top_matches, indent=2)}
-        ```
+        {formatted_cpe_matches}
 
         ### Please analyze these results and determine the best match type and confidence score.
         Return only JSON output.
         """
-    ).strip("\n")
+    )
 
     if not top_matches:
         return {
@@ -105,11 +105,11 @@ async def analyze_matches(state: WorkflowState) -> WorkflowState:
     with log_execution_time(logger, f"Analyzing Matches for alias: {software_alias}"):
         try:
             completion_function, model_args, parse_response_function = get_ai_client(
-                AnalysisResultPydantic, system_prompt, user_prompt
+                AnalysisResultPydantic, system_prompt, user_prompt, mode="analysis"
             )
             response = await completion_function(**model_args)
 
-            logger.info(f"Analysis Result: {model_args}")
+            logger.info(f"Analysis Args: {model_args}")
             result = parse_response_function(response, AnalysisResultPydantic)
 
         except Exception as e:
