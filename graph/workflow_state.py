@@ -27,6 +27,7 @@ class SoftwareInfo(TypedDict):
     product: str
     vendor: str
     version: str
+    inference_reasoning: str
 
 
 ## need seperate model for validation
@@ -34,6 +35,7 @@ class SoftwareInfoPydantic(BaseModel):
     product: str
     vendor: str
     version: str
+    inference_reasoning: str
 
 
 class WorkflowState(TypedDict):

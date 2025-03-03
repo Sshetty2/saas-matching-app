@@ -1,5 +1,6 @@
 import logging
 import logging.handlers
+import queue
 import time
 import uuid
 from contextlib import contextmanager
@@ -11,6 +12,8 @@ from typing import Optional, Dict, Any
 from config import settings
 
 _is_configured = False
+_log_queue = queue.Queue(-1)
+_queue_listener = None
 
 
 class CustomJsonFormatter(jsonlogger.JsonFormatter):
@@ -53,7 +56,7 @@ def log_execution_time(logger: logging.Logger, operation: str):
 
 def configure_logging() -> logging.Logger:
     """Configure logging for the application with structured JSON logging"""
-    global _is_configured
+    global _is_configured, _queue_listener
 
     if _is_configured:
         return logging.getLogger("cpe_matching_agent")
@@ -95,9 +98,17 @@ def configure_logging() -> logging.Logger:
     error_handler.setFormatter(formatter)
     error_handler.setLevel(logging.ERROR)
 
-    root_logger.addHandler(console_handler)
-    root_logger.addHandler(app_handler)
-    root_logger.addHandler(error_handler)
+    _queue_listener = logging.handlers.QueueListener(
+        _log_queue,
+        console_handler,
+        app_handler,
+        error_handler,
+        respect_handler_level=True,
+    )
+    _queue_listener.start()
+
+    queue_handler = logging.handlers.QueueHandler(_log_queue)
+    root_logger.addHandler(queue_handler)
 
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)

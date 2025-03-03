@@ -109,7 +109,6 @@ async def analyze_matches(state: WorkflowState) -> WorkflowState:
             )
             response = await completion_function(**model_args)
 
-            logger.info(f"Analysis Args: {model_args}")
             result = parse_response_function(response, AnalysisResultPydantic)
 
         except Exception as e:

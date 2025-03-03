@@ -102,12 +102,11 @@ if st.session_state.results:
 
     for result in st.session_state.results:
         if result and "cpe_match" in result:
-            if result.get("error"):
-                st.error(result.get("error"))
-                continue
             match_data = {
                 "software_alias": result.get("software_alias", "Unknown"),
                 **result.get("cpe_match", {}),
+                "info": result.get("info", ""),
+                "error": result.get("error", ""),
             }
             cpe_matches_data.append(match_data)
 
@@ -120,6 +119,8 @@ if st.session_state.results:
             "confidence_score",
             "matched_cpe",
             "reasoning",
+            "info",
+            "error",
         ]
         available_columns = [col for col in columns if col in df.columns]
         df = df[available_columns]
