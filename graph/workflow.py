@@ -19,6 +19,9 @@ openai_api_key = settings.llm.openai_api_key
 openai_client = AsyncOpenAI(api_key=openai_api_key)
 use_vector_store = settings.execution.use_vector_store
 
+MAX_CONCURRENT_WORKFLOWS = 3
+workflow_semaphore = asyncio.Semaphore(MAX_CONCURRENT_WORKFLOWS)
+
 
 def should_use_vector_store(state) -> Literal["find_matches", "query_database"]:
     if use_vector_store:
@@ -45,26 +48,36 @@ async def workflow():
 
 
 async def run_workflow(software_alias: str):
-    agent = await workflow()
+    async with workflow_semaphore:
+        logger.info(f"Starting workflow for alias: {software_alias}")
+        agent = await workflow()
 
-    initial_state = {
-        "software_alias": software_alias,
-        "software_info": {"product": "", "vendor": "", "version": ""},
-        "cpe_results": [],
-        "cpe_match": {},
-        "top_matches": [],
-        "error": None,
-        "info": None,
-    }
+        initial_state = {
+            "software_alias": software_alias,
+            "software_info": {"product": "", "vendor": "", "version": ""},
+            "cpe_results": [],
+            "cpe_match": {},
+            "top_matches": [],
+            "error": None,
+            "info": None,
+        }
 
-    try:
-        with log_execution_time(
-            logger, f"Running Workflow for alias: {software_alias}"
-        ):
-            return await agent.ainvoke(initial_state)
-    except Exception as e:
-        logger.error(f"Error running workflow for alias: {software_alias}; {e}")
+        try:
+            with log_execution_time(
+                logger, f"Running Workflow for alias: {software_alias}"
+            ):
+                return await agent.ainvoke(initial_state)
+        except Exception as e:
+            logger.error(f"Error running workflow for alias: {software_alias}; {e}")
+            return {
+                "software_alias": software_alias,
+                "error": str(e),
+                "match_type": "Error",
+                "info": f"Error running workflow: {str(e)}",
+            }
 
 
 async def run_workflows_parallel(software_aliases: list[str]):
-    return await asyncio.gather(*[run_workflow(alias) for alias in software_aliases])
+    """Run multiple workflows in parallel, limited by the semaphore."""
+    tasks = [run_workflow(alias) for alias in software_aliases]
+    return await asyncio.gather(*tasks)

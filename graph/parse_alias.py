@@ -22,6 +22,7 @@ async def parse_alias(state: WorkflowState) -> WorkflowState:
 
         This information will be used to **query a database for similar records** using SQL, so accuracy and generalization are important.  
         If any value is **unclear or missing**, return **"N/A"**, though it may be neccessary to infer the vendor name based on the product.
+        Please only return the vendor, product, and version and no supporting information
 
         The output should be a JSON object with the following keys:
         - **vendor**: The vendor name.

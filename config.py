@@ -44,7 +44,7 @@ class ExecutionConfig(BaseSettings):
     """Configuration for execution settings"""
 
     use_local_model: Optional[bool] = Field(
-        default=False, validation_alias="USE_LOCAL_MODEL"
+        default=True, validation_alias="USE_LOCAL_MODEL"
     )
     use_vector_store: Optional[bool] = Field(
         default=False, validation_alias="USE_VECTOR_STORE"
