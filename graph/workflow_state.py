@@ -67,6 +67,8 @@ class WorkflowState(TypedDict):
     top_matches: Optional[list]
     error: Optional[str]
     info: Optional[str]
+    query_type: Optional[str]
+    query_results: Optional[int]
 
 
 class CPEResult(TypedDict):

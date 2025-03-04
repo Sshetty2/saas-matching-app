@@ -59,9 +59,10 @@ def query_database(state: WorkflowState) -> WorkflowState:
                         attempts += 1
                         continue
                     query_type = "vendor_and_product"
+                    params = (f"%{product}%", f"%{vendor}%")
                     results = execute_query(
                         vendor_and_product_query,
-                        (f"%{product}%", f"%{vendor}%"),
+                        params,
                         query_type,
                         db_connection,
                     )
@@ -70,16 +71,24 @@ def query_database(state: WorkflowState) -> WorkflowState:
                         attempts += 1
                         continue
                     query_type = "product"
+                    params = (f"%{product}%",)
                     results = execute_query(
-                        product_query, (f"%{product}%"), query_type, db_connection
+                        product_query,
+                        params,
+                        query_type,
+                        db_connection,
                     )
                 elif attempts == 3:
                     if not vendor or vendor == "N/A":
                         attempts += 1
                         continue
                     query_type = "vendor"
+                    params = (f"%{vendor}%",)
                     results = execute_query(
-                        vendor_query, (f"%{vendor}%"), query_type, db_connection
+                        vendor_query,
+                        params,
+                        query_type,
+                        db_connection,
                     )
                 if results:
                     break
@@ -92,7 +101,12 @@ def query_database(state: WorkflowState) -> WorkflowState:
             logger.info(
                 f"Successfully queried CPE Database for {software_alias} with {len(results)} records"
             )
-            return {**state, "cpe_results": results}
+            return {
+                **state,
+                "query_type": query_type,
+                "query_results": len(results),
+                "cpe_results": results,
+            }
         else:
             logger.info(
                 f"No results found from CPE Database for alias: {software_alias}"

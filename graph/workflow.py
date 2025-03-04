@@ -60,6 +60,8 @@ async def run_workflow(software_alias: str):
             "top_matches": [],
             "error": None,
             "info": None,
+            "query_type": None,
+            "query_results": None,
         }
 
         try:

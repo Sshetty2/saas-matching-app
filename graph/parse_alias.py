@@ -7,6 +7,7 @@ from graph.workflow_state import SoftwareInfoPydantic
 
 logger = logging.getLogger(__name__)
 
+from textwrap import dedent
 
 system_prompt = dedent(
     """
@@ -18,15 +19,23 @@ system_prompt = dedent(
     - **Product** is the name of the software itself.
     - **Version** is the specific release number (if available).
     - The vendor, product, and version should be **generalized** to ensure database queries return similar records.
+    - **Multi-word vendor and product names must be formatted with underscores (`_`).** Example: `Adobe Acrobat Reader → adobe_acrobat_reader`.
 
     ### **Vendor Inference Rules:**
     - If the vendor is **explicitly mentioned**, return it as is.
     - If the vendor is **not provided but can be inferred**, return the inferred vendor.
-    - If the vendor **cannot be determined**, return N/A.
+    - If the vendor **cannot be determined**, return `"N/A"`.
+
+    ### **Product Name Generalization Rules:**
+    - **If the product has a known abbreviation, return its full name.**
+      - Example: `"ePO"` → `"epolicy_orchestrator"`
+      - Example: `"VS Code"` → `"visual_studio_code"`
+    - If uncertain, return the product name **as written**.
 
     **Output Requirements:**
     - Return **only valid JSON** (no extra text, explanations, or markdown).
-    - If a value is **missing or unclear**, return N/A.
+    - If a value is **missing or unclear**, return `"N/A"`.
+    - Ensure **multi-word names use underscores** instead of spaces.
 
     ### **JSON Response Format:**
     ```json
@@ -47,8 +56,8 @@ system_prompt = dedent(
     **Expected Output:**
     ```json
     {
-        "vendor": "JetBrains",
-        "product": "PyCharm",
+        "vendor": "jetbrains",
+        "product": "pycharm",
         "version": "2019.3",
         "inference_reasoning": "N/A"
     }
@@ -59,13 +68,13 @@ system_prompt = dedent(
     **Expected Output:**
     ```json
     {
-        "vendor": "RARLAB",
-        "product": "WinRAR",
+        "vendor": "rarlab",
+        "product": "winrar",
         "version": "4.01",
         "inference_reasoning": "RARLAB was inferred as the vendor of WinRAR"
     }
     ```
-    
+
     #### **Example 3 (Unclear Vendor)**
     **Software Alias:** `'francisco cifuentes vote for tt news 1.0.1'`
     **Expected Output:**
@@ -78,9 +87,34 @@ system_prompt = dedent(
     }
     ```
 
+    #### **Example 4 (Product Abbreviation Generalization)**
+    **Software Alias:** `'McAfee ePO 5.10'`
+    **Expected Output:**
+    ```json
+    {
+        "vendor": "mcafee",
+        "product": "epolicy_orchestrator",
+        "version": "5.10",
+        "inference_reasoning": "McAfee ePO is commonly known as ePolicy Orchestrator"
+    }
+    ```
+
+    #### **Example 5 (Underscore Formatting for Multi-Word Names)**
+    **Software Alias:** `'Adobe Acrobat Reader DC 2023'`
+    **Expected Output:**
+    ```json
+    {
+        "vendor": "adobe",
+        "product": "acrobat_reader_dc",
+        "version": "2023",
+        "inference_reasoning": "Formatted multi-word product name with underscores"
+    }
+    ```
+
     **Please return only valid JSON. No extra text, explanations, or formatting.**
     """
 )
+
 
 user_prompt = dedent(
     """
