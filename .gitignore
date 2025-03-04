@@ -1,4 +1,4 @@
 *.pyc
 .env
-vector_store*
+*vector_store*
 logs/

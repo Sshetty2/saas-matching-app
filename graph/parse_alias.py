@@ -4,10 +4,14 @@ import logging
 from logging_config import log_execution_time
 from graph.get_ai_client import get_ai_client
 from graph.workflow_state import SoftwareInfoPydantic
+from store.load_vector_store import load_vector_store
 
 logger = logging.getLogger(__name__)
 
 from textwrap import dedent
+
+product_vector_store = load_vector_store("product")
+vendor_vector_store = load_vector_store("vendor")
 
 system_prompt = dedent(
     """
@@ -144,6 +148,23 @@ async def parse_alias(state: WorkflowState) -> WorkflowState:
         try:
             response = await completion_function(**model_args)
             result = parse_response_function(response, SoftwareInfoPydantic)
+
+            vendor = result.get("vendor", "")
+            product = result.get("product", "")
+
+            if vendor != "" and vendor != "N/A":
+                vendor_result = await vendor_vector_store.asimilarity_search(
+                    vendor, k=1
+                )
+                if vendor_result:
+                    result["vendor"] = vendor_result[0].page_content
+
+            if product != "" and product != "N/A":
+                product_result = await product_vector_store.asimilarity_search(
+                    product, k=1
+                )
+                if product_result:
+                    result["product"] = product_result[0].page_content
 
         except Exception as e:
             logger.error(f"Parsing error for alias: {software_alias}; {e}")

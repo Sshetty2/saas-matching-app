@@ -5,15 +5,16 @@
 
 import os
 from store.save_vector_store import save_vector_store
+from store.vector_path import get_vector_store_path
 from database.connection import get_pyodbc_connection, wrap_query_with_json_instructions
-from sentence_transformers import SentenceTransformer
 from langchain_community.vectorstores import InMemoryVectorStore
 from logging_config import log_execution_time, configure_logging
-from langchain_huggingface import HuggingFaceEmbeddings
 from store.get_embedding_model import get_embedding_model
+from typing import Optional
 from config import settings
 from tqdm import tqdm
 import time
+import argparse
 
 import json
 import logging
@@ -27,46 +28,79 @@ cpe_table_name = settings.db.db_table
 
 db_connection = get_pyodbc_connection()
 
+distinct_product_query = f"SELECT DISTINCT Product FROM tb_CPEConfiguration"
 
-def get_cpe_records():
+distinct_vendor_query = f"SELECT DISTINCT Vendor FROM tb_CPEConfiguration"
+
+
+def get_cpe_records(prefix: Optional[str] = None):
     """Get the CPE records from the database."""
 
-    query = f"SELECT * FROM tb_CPEConfiguration"
+    logger.info(
+        f"Getting CPE records for {prefix}", extra={"prefix-true": prefix == "vendor"}
+    )
+
+    if prefix == "product":
+        query = distinct_product_query
+    elif prefix == "vendor":
+        query = distinct_vendor_query
+    else:
+        query = f"SELECT * FROM tb_CPEConfiguration"
+
     cursor = db_connection.cursor()
     query = wrap_query_with_json_instructions(query)
     cursor.execute(query)
+
+    logger.info(f"Query: {query}")
     results = cursor.fetchall()
     cursor.close()
     results = results[0][0] if results else None
     if results:
         return json.loads(results)
+
     else:
         logger.error("No CPE records found in the database.")
         return None
 
 
-def process_cpe_vectors():
+def process_cpe_vectors(prefix: Optional[str] = None):
     """Process the CPE record vectors and save them to disk."""
 
-    with log_execution_time(logger, "Processing CPE vectors"):
-        logger.info("Getting CPE records from the database")
-        cpe_records = get_cpe_records()
+    is_default = not prefix
+
+    with log_execution_time(
+        logger, f"Processing CPE vectors for {"default" if is_default  else prefix}"
+    ):
+        cpe_records = get_cpe_records(prefix)
 
     if not cpe_records:
         logger.error("No CPE records found in the database.")
         return
 
-    with log_execution_time(logger, "Processing CPE vectors for vector store"):
+    logger.info(f"Processing {len(cpe_records)} CPE vectors for vector store")
+
+    with log_execution_time(
+        logger, f"Processing {len(cpe_records)} CPE vectors for vector store"
+    ):
         try:
 
             cpe_texts = []
             metadata_records = []
 
             for cpe in cpe_records:
-                cpeText = cpe["ConfigurationsName"]
+
+                if prefix == "product":
+                    cpeText = cpe["Product"]
+                elif prefix == "vendor":
+                    cpeText = cpe["Vendor"]
+                else:
+                    cpeText = cpe["ConfigurationsName"]
+
                 cpe_texts.append(cpeText)
-                metadata = cpe
-                metadata_records.append(metadata)
+
+                if not prefix:
+                    metadata = cpe
+                    metadata_records.append(metadata)
 
             total_records = len(cpe_texts)
             logger.info(f"Processing {total_records} CPE records")
@@ -88,8 +122,13 @@ def process_cpe_vectors():
             with tqdm(total=total_records, desc="Encoding CPE records") as pbar:
                 for i in range(0, total_records, batch_size):
                     batch = cpe_texts[i : i + batch_size]
-                    metadata_batch = metadata_records[i : i + batch_size]
-                    vector_store.add_texts(batch, metadata_batch)
+
+                    if not prefix:
+                        metadata_batch = metadata_records[i : i + batch_size]
+                        vector_store.add_texts(batch, metadata_batch)
+                    else:
+                        vector_store.add_texts(batch)
+
                     pbar.update(len(batch))
 
                     if (i + batch_size) % 5000 == 0 or (
@@ -105,8 +144,10 @@ def process_cpe_vectors():
 
             logger.info("Saving vector store to disk")
 
+            vector_store_path = get_vector_store_path(prefix)
+
             with log_execution_time(logger, "Saving vector store to disk"):
-                save_vector_store(vector_store)
+                save_vector_store(vector_store, vector_store_path)
 
             total_time = time.time() - start_time
             logger.info(
@@ -119,5 +160,20 @@ def process_cpe_vectors():
             return
 
 
+parser = argparse.ArgumentParser(
+    description="The prefix to process the CPE vectors for."
+)
+
+parser.add_argument(
+    "--prefix", type=str, required=False, help="Specify 'vendor' or 'product'"
+)
+
+args = parser.parse_args()
+
+prefix_value = args.prefix
+
 if __name__ == "__main__":
-    process_cpe_vectors()
+    if prefix_value:
+        process_cpe_vectors(prefix_value)
+    else:
+        process_cpe_vectors()

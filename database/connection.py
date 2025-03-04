@@ -7,7 +7,7 @@ from config import settings
 
 
 def wrap_query_with_json_instructions(query):
-    return f"SELECT (({query} FOR JSON AUTO)) AS json"
+    return f"select DISTINCT ({query} FOR JSON AUTO) AS json"
 
 
 def build_connection_string():
