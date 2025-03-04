@@ -111,7 +111,12 @@ with st.sidebar:
     if settings.execution.use_local_model:
         st.subheader("Local Model Settings")
 
-        local_analysis_options = ["qwen2.5:14b", "llama3.1"]
+        local_analysis_options = [
+            "qwen2.5:14b",
+            "qwen2.5:32b",
+            "llama3.1:8b",
+            "gemma2:27b",
+        ]
         local_analysis_default = (
             local_analysis_options.index(settings.llm.local_analysis_model)
             if settings.llm.local_analysis_model in local_analysis_options
@@ -127,7 +132,12 @@ with st.sidebar:
             help="Model used for analyzing and scoring CPE matches",
         )
 
-        local_parse_options = ["qwen2.5:14b", "llama3.1"]
+        local_parse_options = [
+            "llama3.1:8b",
+            "qwen2.5:14b",
+            "qwen2.5:32b",
+            "gemma2:27b",
+        ]
         local_parse_default = (
             local_parse_options.index(settings.llm.local_parse_model)
             if settings.llm.local_parse_model in local_parse_options
