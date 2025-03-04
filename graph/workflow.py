@@ -79,5 +79,8 @@ async def run_workflow(software_alias: str):
 
 async def run_workflows_parallel(software_aliases: list[str]):
     """Run multiple workflows in parallel, limited by the semaphore."""
+    logger.info(
+        f"Running {len(software_aliases)} workflows in parallel for {software_aliases} with {MAX_CONCURRENT_WORKFLOWS} concurrent workflows"
+    )
     tasks = [run_workflow(alias) for alias in software_aliases]
     return await asyncio.gather(*tasks)
