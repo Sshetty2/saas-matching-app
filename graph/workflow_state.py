@@ -1,12 +1,50 @@
 from typing import Optional, TypedDict
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import pyodbc
-
 
 ## TODO: consolidate models
 
 
-# need seperate model langchain validation
+# need seperate models for validation
+class AnalysisResultPydantic(BaseModel):
+    match_type: str = Field(
+        ...,
+        description="The type of match: 'Exact Match', 'Close Match', 'General Match', or 'No Match'.",
+    )
+    confidence_score: int = Field(
+        ...,
+        ge=0,
+        le=100,
+        description="Confidence score (0-100) based on how closely the software alias matches the CPE record.",
+    )
+    matched_cpe: str = Field(
+        ..., description="The CPE string that best matches the software alias."
+    )
+    reasoning: str = Field(
+        ...,
+        description="A brief explanation of why this match was chosen and the confidence score given.",
+    )
+
+
+class SoftwareInfoPydantic(BaseModel):
+    product: str = Field(
+        ..., description="The parsed product name from the software alias."
+    )
+    vendor: str = Field(
+        ...,
+        description="The parsed vendor name from the software alias. If inferred, this should be noted in 'inference_reasoning'.",
+    )
+    version: str = Field(
+        ...,
+        description="The version number of the software if available; otherwise 'N/A'.",
+    )
+    inference_reasoning: str = Field(
+        ...,
+        description="If the vendor was inferred, provide a short explanation. Otherwise, return 'N/A'.",
+    )
+
+
+# need seperate models for langchain validation
 class AnalysisResult(TypedDict):
     match_type: str
     confidence_score: int
@@ -14,24 +52,7 @@ class AnalysisResult(TypedDict):
     reasoning: str
 
 
-# need seperate model langchain validation
-class AnalysisResultPydantic(BaseModel):
-    match_type: str
-    confidence_score: int
-    matched_cpe: str
-    reasoning: str
-
-
-# need seperate model langchain validation
 class SoftwareInfo(TypedDict):
-    product: str
-    vendor: str
-    version: str
-    inference_reasoning: str
-
-
-## need seperate model for validation
-class SoftwareInfoPydantic(BaseModel):
     product: str
     vendor: str
     version: str
