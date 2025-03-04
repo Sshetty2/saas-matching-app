@@ -32,7 +32,7 @@ def format_cpe_matches(top_matches):
         result.append(
             dedent(
                 f"""
-                Match #{i}:
+                Top Match #{i}:
                 CPE ID: {cpe_id}
                 Vendor: {vendor}
                 Product: {product}
