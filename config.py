@@ -21,11 +21,11 @@ class LLMConfig(BaseSettings):
     openai_api_key: Optional[SecretStr] = Field(
         default=None, validation_alias="OPENAI_API_KEY"
     )
-    openai_model: Optional[str] = Field(
-        default="gpt-4o-mini", validation_alias="OPENAI_MODEL"
+    openai_analysis_model: Optional[str] = Field(
+        default="gpt-4o-mini", validation_alias="OPENAI_ANALYSIS_MODEL"
     )
-    parser_model: Optional[str] = Field(
-        default="gpt-4o-mini", validation_alias="PARSER_MODEL"
+    openai_parse_model: Optional[str] = Field(
+        default="gpt-4o-mini", validation_alias="OPENAI_PARSE_MODEL"
     )
     local_analysis_model: Optional[str] = Field(
         default="qwen2.5:14b", validation_alias="LOCAL_ANALYSIS_MODEL"

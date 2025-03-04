@@ -9,10 +9,10 @@ asyncio.set_event_loop(loop)
 import streamlit as st
 import pandas as pd
 from graph.workflow import run_workflows_parallel
+from config import settings
 
-# Initialize session state variables
 if "software_inputs" not in st.session_state:
-    st.session_state.software_inputs = [""]  # Start with one empty input
+    st.session_state.software_inputs = [""]
 if "results" not in st.session_state:
     st.session_state.results = None
 
@@ -64,6 +64,131 @@ def run_matching():
     with st.spinner("Matching software to CPEs... please wait ⏳"):
         results = asyncio.run(run_workflows_parallel(software_list))
         st.session_state.results = results
+
+
+def update_model_setting():
+    """Update the use_local_model setting based on the dropdown selection"""
+    settings.execution.use_local_model = (
+        st.session_state.model_selection == "Local Model"
+    )
+
+
+def update_local_analysis_model():
+    """Update the local analysis model setting"""
+    settings.llm.local_analysis_model = st.session_state.local_analysis_model
+
+
+def update_local_parse_model():
+    """Update the local parse model setting"""
+    settings.llm.local_parse_model = st.session_state.local_parse_model
+
+
+def update_openai_analysis_model():
+    """Update the OpenAI analysis model setting"""
+    settings.llm.openai_analysis_model = st.session_state.openai_analysis_model
+
+
+def update_openai_parse_model():
+    """Update the OpenAI parse model setting"""
+    settings.llm.openai_parse_model = st.session_state.openai_parse_model
+
+
+with st.sidebar:
+    st.title("Settings")
+
+    model_options = ["Local Model", "OpenAI Model"]
+    default_index = 0 if settings.execution.use_local_model else 1
+
+    st.selectbox(
+        "Select Model",
+        options=model_options,
+        index=default_index,
+        key="model_selection",
+        on_change=update_model_setting,
+        help="Choose between local models or OpenAI models",
+    )
+
+    if settings.execution.use_local_model:
+        st.subheader("Local Model Settings")
+
+        local_analysis_options = ["qwen2.5:14b", "llama3.1"]
+        local_analysis_default = (
+            local_analysis_options.index(settings.llm.local_analysis_model)
+            if settings.llm.local_analysis_model in local_analysis_options
+            else 0
+        )
+
+        st.selectbox(
+            "Analysis Model",
+            options=local_analysis_options,
+            index=local_analysis_default,
+            key="local_analysis_model",
+            on_change=update_local_analysis_model,
+            help="Model used for analyzing and scoring CPE matches",
+        )
+
+        local_parse_options = ["qwen2.5:14b", "llama3.1"]
+        local_parse_default = (
+            local_parse_options.index(settings.llm.local_parse_model)
+            if settings.llm.local_parse_model in local_parse_options
+            else 0
+        )
+
+        st.selectbox(
+            "Parse Model",
+            options=local_parse_options,
+            index=local_parse_default,
+            key="local_parse_model",
+            on_change=update_local_parse_model,
+            help="Model used for parsing software names",
+        )
+    else:
+        st.subheader("OpenAI Model Settings")
+
+        openai_analysis_options = ["gpt-4o-mini", "gpt-4o"]
+        openai_analysis_default = (
+            openai_analysis_options.index(settings.llm.openai_analysis_model)
+            if settings.llm.openai_analysis_model in openai_analysis_options
+            else 0
+        )
+
+        st.selectbox(
+            "Analysis Model",
+            options=openai_analysis_options,
+            index=openai_analysis_default,
+            key="openai_analysis_model",
+            on_change=update_openai_analysis_model,
+            help="OpenAI model used for analyzing and scoring CPE matches",
+        )
+
+        openai_parse_options = ["gpt-4o-mini", "gpt-4o"]
+        openai_parse_default = (
+            openai_parse_options.index(settings.llm.openai_parse_model)
+            if settings.llm.openai_parse_model in openai_parse_options
+            else 0
+        )
+
+        st.selectbox(
+            "Parse Model",
+            options=openai_parse_options,
+            index=openai_parse_default,
+            key="openai_parse_model",
+            on_change=update_openai_parse_model,
+            help="OpenAI model used for parsing software names",
+        )
+
+    st.subheader("Current Configuration")
+    st.write(f"Using Local Model: {settings.execution.use_local_model}")
+
+    if settings.execution.use_local_model:
+        st.write(f"Analysis Model: {settings.llm.local_analysis_model}")
+        st.write(f"Parse Model: {settings.llm.local_parse_model}")
+    else:
+        st.write(f"Analysis Model: {settings.llm.openai_analysis_model}")
+        st.write(f"Parse Model: {settings.llm.openai_parse_model}")
+
+    st.write(f"Embedding Model: {settings.llm.embedding_model}")
+    st.write(f"Using Vector Store: {settings.execution.use_vector_store}")
 
 
 col1, col2, col3 = st.columns([1, 2, 1])

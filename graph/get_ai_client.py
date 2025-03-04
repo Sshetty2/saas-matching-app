@@ -6,10 +6,6 @@ from graph.workflow_state import SoftwareInfoPydantic
 import json
 from config import settings
 
-local_analysis_model = settings.llm.local_analysis_model
-local_parse_model = settings.llm.local_parse_model
-openai_model = settings.llm.openai_model
-use_local_model = settings.execution.use_local_model
 openai_api_key = settings.llm.openai_api_key.get_secret_value()
 
 
@@ -17,6 +13,9 @@ def use_local_model_client(
     validation_model: BaseModel, system_prompt: str, user_prompt: str, mode: str
 ):
     ollama_client = AsyncClient()
+
+    local_analysis_model = settings.llm.local_analysis_model
+    local_parse_model = settings.llm.local_parse_model
 
     if mode == "analysis":
         model = local_analysis_model
@@ -37,8 +36,17 @@ def use_local_model_client(
 
 def use_openai_client(system_prompt: str, user_prompt: str, mode: str):
     openai_client = AsyncOpenAI(api_key=openai_api_key)
+
+    openai_analysis_model = settings.llm.openai_analysis_model
+    openai_parse_model = settings.llm.openai_parse_model
+
+    if mode == "analysis":
+        model = openai_analysis_model
+    else:
+        model = openai_parse_model
+
     model_args = {
-        "model": openai_model,
+        "model": model,
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
@@ -75,6 +83,8 @@ def parse_response_function_openai(response: str, _: BaseModel):
 def get_ai_client(
     validation_model: BaseModel, system_prompt: str, user_prompt: str, mode: str
 ):
+    use_local_model = settings.execution.use_local_model
+
     if use_local_model:
         completion_function, model_args = use_local_model_client(
             validation_model, system_prompt, user_prompt, mode
