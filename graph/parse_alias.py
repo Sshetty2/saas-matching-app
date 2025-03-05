@@ -186,8 +186,6 @@ async def parse_alias(state: WorkflowState) -> WorkflowState:
         SoftwareInfoPydantic, system_prompt, formatted_user_prompt, mode="parse"
     )
 
-    print(f"formatted_user_prompt: {formatted_user_prompt}")
-
     with log_execution_time(logger, f"Parsing Software Alias {software_alias}"):
         try:
             response = await completion_function(**model_args)

@@ -35,7 +35,7 @@ with log_execution_time(logger, "Loading Vector Stores"):
         vendor_vector_store = load_vector_store("vendor")
 
 
-def should_try_reparse(state) -> Literal["parse_alias", END]:
+def should_try_reparse(state) -> Literal["query_database", "parse_alias", END]:
     parse_results = state.get("parse_results", [])
     parse_results_count = len(parse_results)
     vectors_found = state.get("vectors_found", False)
@@ -74,6 +74,7 @@ async def workflow():
     workflow.add_edge(START, "parse_alias")
 
     workflow.add_conditional_edges("parse_alias", should_try_reparse)
+    workflow.add_edge("query_database", "find_matches")
     workflow.add_edge("find_matches", "analyze_matches")
     workflow.add_conditional_edges("analyze_matches", should_restart_workflow)
 
