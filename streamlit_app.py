@@ -113,6 +113,7 @@ with st.sidebar:
         st.subheader("Local Model Settings")
 
         local_analysis_options = [
+            "deepseek-r1:14b",
             "qwen2.5:14b",
             "qwen2.5:32b",
             "llama3.1:8b",
@@ -136,6 +137,7 @@ with st.sidebar:
         local_parse_options = [
             "qwen2.5:14b",
             "qwen2.5:32b",
+            "deepseek-r1:14b",
             "llama3.1:8b",
             "gemma2:27b",
         ]

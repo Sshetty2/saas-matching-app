@@ -22,13 +22,13 @@ class LLMConfig(BaseSettings):
         default=None, validation_alias="OPENAI_API_KEY"
     )
     openai_analysis_model: Optional[str] = Field(
-        default="gpt-4o-mini", validation_alias="OPENAI_ANALYSIS_MODEL"
+        default="gpt-4o", validation_alias="OPENAI_ANALYSIS_MODEL"
     )
     openai_parse_model: Optional[str] = Field(
-        default="gpt-4o-mini", validation_alias="OPENAI_PARSE_MODEL"
+        default="gpt-4o", validation_alias="OPENAI_PARSE_MODEL"
     )
     local_analysis_model: Optional[str] = Field(
-        default="qwen2.5:14b", validation_alias="LOCAL_ANALYSIS_MODEL"
+        default="deepseek-r1:14b", validation_alias="LOCAL_ANALYSIS_MODEL"
     )
     local_parse_model: Optional[str] = Field(
         default="qwen2.5:14b", validation_alias="LOCAL_PARSE_MODEL"
