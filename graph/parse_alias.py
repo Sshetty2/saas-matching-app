@@ -4,14 +4,11 @@ import logging
 from logging_config import log_execution_time
 from graph.get_ai_client import get_ai_client
 from graph.workflow_state import SoftwareInfoPydantic
-from store.load_vector_store import load_vector_store
+from textwrap import dedent
+import json
 
 logger = logging.getLogger(__name__)
 
-from textwrap import dedent
-
-product_vector_store = load_vector_store("product")
-vendor_vector_store = load_vector_store("vendor")
 
 system_prompt = dedent(
     """
@@ -26,11 +23,13 @@ system_prompt = dedent(
     - **Multi-word vendor and product names must be formatted with underscores (`_`).** Example: `Adobe Acrobat Reader → adobe_acrobat_reader`.
 
     ### **Vendor Inference Rules:**
+    - Do your best not to meaningfully change the vendor name so that it is not the same vendor mentioned in the alias.
     - If the vendor is **explicitly mentioned**, return it as is.
     - If the vendor is **not provided but can be inferred**, return the inferred vendor.
     - If the vendor **cannot be determined**, return `"N/A"`.
 
     ### **Product Name Generalization Rules:**
+    - Do your best not to meaningfully change the product name so that it is not the same product mentioned in the alias.
     - **If the product has a known abbreviation, return its full name.**
       - Example: `"ePO"` → `"epolicy_orchestrator"`
       - Example: `"VS Code"` → `"visual_studio_code"`
@@ -130,15 +129,49 @@ user_prompt = dedent(
     """
 )
 
+user_prompt_requery = dedent(
+    """
+    ### Reattempting Parsing: Previous Query Returned No Results
+    
+    The initial attempt to extract vendor, product, and version from `{software_alias}` resulted in a **failed database query**.
+    
+    **Number of Attempts:** `{query_attempts}`
+    
+    **Previous Parse Attempt Results (PLEASE DO NOT REPEAT THESE RESULTS):**
+    ```json
+    {parse_results}
+    ```
+
+    ### **Instructions:**
+    - **Re-evaluate the software alias** to extract a **more general vendor and/or product** that may yield better search results in the database.
+    - If the vendor was not inferred, try switching the vendor and product.
+    - Try not to change the product or vendor too much but still make it more general to fit more queries.
+    - Return **only valid JSON** in the required format.
+    """
+)
+
 
 async def parse_alias(state: WorkflowState) -> WorkflowState:
     """Generates a clean, base query for the NVD API using a system prompt for formatting."""
 
     software_alias = state.get("software_alias", "")
+    query_attempts = state.get("query_attempts", 0)
+    parse_results = state.get("parse_results", [])
+    product_vector_store = state.get("product_vector_store", None)
+    vendor_vector_store = state.get("vendor_vector_store", None)
 
-    logger.info(f"Parsing Software Alias for {software_alias}")
-
-    formatted_user_prompt = user_prompt.format(software_alias=software_alias)
+    if query_attempts:
+        formatted_user_prompt = user_prompt_requery.format(
+            software_alias=software_alias,
+            query_attempts=query_attempts,
+            parse_results=parse_results,
+        )
+        logger.info(f"Reattempting Software Alias Parsing for {software_alias}")
+    else:
+        formatted_user_prompt = user_prompt.format(
+            software_alias=software_alias,
+        )
+        logger.info(f"Parsing Software Alias for {software_alias}")
 
     completion_function, model_args, parse_response_function = get_ai_client(
         SoftwareInfoPydantic, system_prompt, formatted_user_prompt, mode="parse"
@@ -149,6 +182,8 @@ async def parse_alias(state: WorkflowState) -> WorkflowState:
             response = await completion_function(**model_args)
             result = parse_response_function(response, SoftwareInfoPydantic)
 
+            print("RESULT", result, formatted_user_prompt)
+
             vendor = result.get("vendor", "")
             product = result.get("product", "")
 
@@ -157,14 +192,22 @@ async def parse_alias(state: WorkflowState) -> WorkflowState:
                     vendor, k=1
                 )
                 if vendor_result:
-                    result["vendor"] = vendor_result[0].page_content
+                    vendor_result = vendor_result[0].page_content
+                    result = {
+                        **result,
+                        "vendor": vendor_result,
+                    }
 
             if product != "" and product != "N/A":
                 product_result = await product_vector_store.asimilarity_search(
                     product, k=1
                 )
                 if product_result:
-                    result["product"] = product_result[0].page_content
+                    product_result = product_result[0].page_content
+                    result = {
+                        **result,
+                        "product": product_result,
+                    }
 
         except Exception as e:
             logger.error(f"Parsing error for alias: {software_alias}; {e}")
@@ -176,4 +219,5 @@ async def parse_alias(state: WorkflowState) -> WorkflowState:
             }
 
     logger.info(f"Parsed alias: {result}")
-    return {**state, "software_info": result}
+    parse_results.append(result)
+    return {**state, "software_info": result, "parse_results": parse_results}

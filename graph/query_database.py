@@ -35,6 +35,8 @@ def execute_query(query, params, query_type, db_connection):
 def query_database(state: WorkflowState) -> WorkflowState:
     results = None
 
+    query_attempts = state.get("query_attempts", 0)
+
     attempts = 1
 
     software_alias = state.get("software_alias", "")
@@ -67,18 +69,6 @@ def query_database(state: WorkflowState) -> WorkflowState:
                         db_connection,
                     )
                 elif attempts == 2:
-                    if not product or product == "N/A":
-                        attempts += 1
-                        continue
-                    query_type = "product"
-                    params = (f"%{product}%",)
-                    results = execute_query(
-                        product_query,
-                        params,
-                        query_type,
-                        db_connection,
-                    )
-                elif attempts == 3:
                     if not vendor or vendor == "N/A":
                         attempts += 1
                         continue
@@ -86,6 +76,18 @@ def query_database(state: WorkflowState) -> WorkflowState:
                     params = (f"%{vendor}%",)
                     results = execute_query(
                         vendor_query,
+                        params,
+                        query_type,
+                        db_connection,
+                    )
+                elif attempts == 3:
+                    if not product or product == "N/A":
+                        attempts += 1
+                        continue
+                    query_type = "product"
+                    params = (f"%{product}%",)
+                    results = execute_query(
+                        product_query,
                         params,
                         query_type,
                         db_connection,
@@ -103,9 +105,10 @@ def query_database(state: WorkflowState) -> WorkflowState:
             )
             return {
                 **state,
+                "cpe_results": results,
                 "query_type": query_type,
                 "query_results": len(results),
-                "cpe_results": results,
+                "query_attempts": query_attempts + 1,
             }
         else:
             logger.info(

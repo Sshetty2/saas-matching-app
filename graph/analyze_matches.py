@@ -120,6 +120,8 @@ async def analyze_matches(state: WorkflowState) -> WorkflowState:
         formatted_cpe_matches=formatted_cpe_matches,
     )
 
+    attempts = state.get("attempts", 0)
+
     if not top_matches:
         return {
             "__end__": True,
@@ -153,4 +155,4 @@ async def analyze_matches(state: WorkflowState) -> WorkflowState:
 
     logger.info(f"Analyzed matches for {software_alias}: {result}")
     ## Clear cpe results to trim output body
-    return {**state, "cpe_results": [], "cpe_match": result}
+    return {**state, "cpe_results": [], "cpe_match": result, "attempts": attempts + 1}

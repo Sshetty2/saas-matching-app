@@ -31,7 +31,7 @@ class LLMConfig(BaseSettings):
         default="qwen2.5:14b", validation_alias="LOCAL_ANALYSIS_MODEL"
     )
     local_parse_model: Optional[str] = Field(
-        default="llama3.1:8b", validation_alias="LOCAL_PARSE_MODEL"
+        default="qwen2.5:14b", validation_alias="LOCAL_PARSE_MODEL"
     )
     embedding_model: Optional[str] = Field(
         default="all-MiniLM-L6-v2", validation_alias="EMBEDDING_MODEL"

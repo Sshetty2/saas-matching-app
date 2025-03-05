@@ -8,6 +8,7 @@ asyncio.set_event_loop(loop)
 
 import streamlit as st
 import pandas as pd
+import logging
 from graph.workflow import run_workflows_parallel
 from config import settings
 
@@ -133,9 +134,9 @@ with st.sidebar:
         )
 
         local_parse_options = [
-            "llama3.1:8b",
             "qwen2.5:14b",
             "qwen2.5:32b",
+            "llama3.1:8b",
             "gemma2:27b",
         ]
         local_parse_default = (

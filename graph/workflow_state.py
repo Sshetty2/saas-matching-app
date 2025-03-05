@@ -1,4 +1,4 @@
-from typing import Optional, TypedDict
+from typing import Optional, TypedDict, Any
 from pydantic import BaseModel, Field
 import pyodbc
 
@@ -67,8 +67,19 @@ class WorkflowState(TypedDict):
     top_matches: Optional[list]
     error: Optional[str]
     info: Optional[str]
-    query_type: Optional[str]
-    query_results: Optional[int]
+    query_type: Optional[
+        str
+    ]  ## used to track the type of query used to find the CPE results
+    query_results: Optional[
+        int
+    ]  ## used to track the number of results found from the query
+    query_attempts: Optional[
+        int
+    ]  ## used to track the number of attempts to query the database
+    parse_results: Optional[list[SoftwareInfo]]
+    product_vector_store: Optional[Any]
+    vendor_vector_store: Optional[Any]
+    attempts: Optional[int]
 
 
 class CPEResult(TypedDict):
