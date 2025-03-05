@@ -19,12 +19,15 @@ system_prompt = dedent(
     - **Version** is the specific release number (if available).
     - The vendor, product, and version should be **generalized** to ensure database queries return similar records.
     - **Multi-word vendor and product names must be formatted with underscores (`_`).** Example: `Adobe Acrobat Reader → adobe_acrobat_reader`.
+    - Do not add escape characters to the vendor name.
+    - Special characters do not need special handling ie. '+', '-', etc.
+
 
     ### **Vendor Inference Rules:**
     - Do your best not to meaningfully change the vendor name so that it is not the same vendor mentioned in the alias.
     - If the vendor is **explicitly mentioned**, return it as is.
     - If the vendor is **not provided but can be inferred**, return the inferred vendor.
-    - If the vendor **cannot be determined**, return `"N/A"`.
+    - If the vendor is **cannot be determined**, return `"N/A"`.
 
     ### **Product Name Generalization Rules:**
     - Do your best not to meaningfully change the product name so that it is not the same product mentioned in the alias.
@@ -135,7 +138,7 @@ user_prompt_requery = dedent(
     
     **Number of Attempts:** `{parse_result_count}`
     
-    **Prior parse attempt results for reference (DO NOT REPEAT):**
+    **Prior parse attempt results for reference (DO NOT REPEAT; PLEASE TRY DIFFERENT VENDOR AND PRODUCT COMBINATION):**
     ```json
     {parse_results}
     ```
@@ -166,14 +169,24 @@ async def parse_alias(state: WorkflowState) -> WorkflowState:
 
     software_alias = state.get("software_alias", "")
     parse_results = state.get("parse_results", [])
+    ai_parse_results = state.get("ai_parse_results", [])
     product_vector_store = state.get("product_vector_store", None)
     vendor_vector_store = state.get("vendor_vector_store", None)
+
+    new_ai_parse_results = [
+        {
+            "vendor": ai_parse_result.get("vendor", ""),
+            "product": ai_parse_result.get("product", ""),
+            "version": ai_parse_result.get("version", ""),
+        }
+        for ai_parse_result in ai_parse_results
+    ]
 
     if len(parse_results):
         formatted_user_prompt = user_prompt_requery.format(
             software_alias=software_alias,
-            parse_result_count=len(parse_results),
-            parse_results=parse_results,
+            parse_result_count=len(new_ai_parse_results),
+            parse_results=new_ai_parse_results,
         )
         logger.info(f"Reattempting Software Alias Parsing for {software_alias}")
     else:
@@ -190,6 +203,8 @@ async def parse_alias(state: WorkflowState) -> WorkflowState:
         try:
             response = await completion_function(**model_args)
             result = parse_response_function(response, SoftwareInfoPydantic)
+
+            ai_result = {**result}
 
             vendor = result.get("vendor", "")
             product = result.get("product", "")
@@ -231,11 +246,13 @@ async def parse_alias(state: WorkflowState) -> WorkflowState:
             }
 
     logger.info(f"Parsed alias: {result}")
+    ai_parse_results.append(ai_result)
     parse_results.append(result)
     return {
         **state,
         "software_info": result,
         "parse_results": parse_results,
+        "ai_parse_results": ai_parse_results,
         "vectors_found": vectors_found,
         "info": "Vectors found" if vectors_found else "No suitable vectors found",
     }

@@ -73,7 +73,10 @@ class WorkflowState(TypedDict):
     query_results: Optional[
         int
     ]  ## used to track the number of results found from the query
-    parse_results: Optional[list[SoftwareInfo]]
+    parse_results: Optional[
+        list[SoftwareInfo]
+    ]  ## parse results based on AI and loose vector search
+    ai_parse_results: Optional[list[SoftwareInfo]]  ## parse results directly from AI
     product_vector_store: Optional[Any]
     vendor_vector_store: Optional[Any]
     attempts: Optional[int]

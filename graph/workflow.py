@@ -108,6 +108,7 @@ async def run_workflow(software_alias: str):
             "query_type": None,
             "query_results": None,
             "parse_results": [],
+            "ai_parse_results": [],
             "product_vector_store": product_vector_store,
             "vendor_vector_store": vendor_vector_store,
             "retries": 0,
