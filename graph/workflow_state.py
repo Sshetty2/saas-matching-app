@@ -73,13 +73,11 @@ class WorkflowState(TypedDict):
     query_results: Optional[
         int
     ]  ## used to track the number of results found from the query
-    query_attempts: Optional[
-        int
-    ]  ## used to track the number of attempts to query the database
     parse_results: Optional[list[SoftwareInfo]]
     product_vector_store: Optional[Any]
     vendor_vector_store: Optional[Any]
     attempts: Optional[int]
+    vectors_found: Optional[bool]
 
 
 class CPEResult(TypedDict):

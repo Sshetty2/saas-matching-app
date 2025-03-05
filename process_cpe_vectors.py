@@ -17,12 +17,8 @@ import time
 import argparse
 
 import json
-import logging
 
-
-configure_logging()
-
-logger = logging.getLogger(__name__)
+logger = configure_logging()
 
 cpe_table_name = settings.db.db_table
 

@@ -1,14 +1,12 @@
+import json
 from textwrap import dedent
 from graph.workflow_state import WorkflowState
-import logging
-from logging_config import log_execution_time
 from graph.get_ai_client import get_ai_client
 from graph.workflow_state import SoftwareInfoPydantic
-from textwrap import dedent
-import json
+from logging_config import configure_logging, log_execution_time
+from thefuzz import fuzz
 
-logger = logging.getLogger(__name__)
-
+logger = configure_logging()
 
 system_prompt = dedent(
     """
@@ -135,9 +133,9 @@ user_prompt_requery = dedent(
     
     The initial attempt to extract vendor, product, and version from `{software_alias}` resulted in a **failed database query**.
     
-    **Number of Attempts:** `{query_attempts}`
+    **Number of Attempts:** `{parse_result_count}`
     
-    **Previous Parse Attempt Results (PLEASE DO NOT REPEAT THESE RESULTS):**
+    **Prior parse attempt results for reference (DO NOT REPEAT):**
     ```json
     {parse_results}
     ```
@@ -151,19 +149,30 @@ user_prompt_requery = dedent(
 )
 
 
+def check_fuzz_score(str_to_check, str_to_compare, score_threshold):
+    if str_to_compare == "":
+        return True
+    else:
+        return fuzz.ratio(str_to_check, str_to_compare) > score_threshold
+
+
 async def parse_alias(state: WorkflowState) -> WorkflowState:
-    """Generates a clean, base query for the NVD API using a system prompt for formatting."""
+    """
+    Parse the software alias to extract vendor, product, and version.
+    Vector stores for product and vendor are used to find product and vendor names that match the CPE database.
+    Results from the similarity search are only used if the fuzz score is greater than the threshold.
+    If matches are found in the DB, a flag (vectors_found) is set to indicate that we can proceed to the next step.
+    """
 
     software_alias = state.get("software_alias", "")
-    query_attempts = state.get("query_attempts", 0)
     parse_results = state.get("parse_results", [])
     product_vector_store = state.get("product_vector_store", None)
     vendor_vector_store = state.get("vendor_vector_store", None)
 
-    if query_attempts:
+    if len(parse_results):
         formatted_user_prompt = user_prompt_requery.format(
             software_alias=software_alias,
-            query_attempts=query_attempts,
+            parse_result_count=len(parse_results),
             parse_results=parse_results,
         )
         logger.info(f"Reattempting Software Alias Parsing for {software_alias}")
@@ -177,15 +186,16 @@ async def parse_alias(state: WorkflowState) -> WorkflowState:
         SoftwareInfoPydantic, system_prompt, formatted_user_prompt, mode="parse"
     )
 
+    print(f"formatted_user_prompt: {formatted_user_prompt}")
+
     with log_execution_time(logger, f"Parsing Software Alias {software_alias}"):
         try:
             response = await completion_function(**model_args)
             result = parse_response_function(response, SoftwareInfoPydantic)
 
-            print("RESULT", result, formatted_user_prompt)
-
             vendor = result.get("vendor", "")
             product = result.get("product", "")
+            vectors_found = False
 
             if vendor != "" and vendor != "N/A":
                 vendor_result = await vendor_vector_store.asimilarity_search(
@@ -193,31 +203,41 @@ async def parse_alias(state: WorkflowState) -> WorkflowState:
                 )
                 if vendor_result:
                     vendor_result = vendor_result[0].page_content
-                    result = {
-                        **result,
-                        "vendor": vendor_result,
-                    }
-
+                    if check_fuzz_score(vendor_result, vendor, 70):
+                        result = {
+                            **result,
+                            "vendor": vendor_result,
+                        }
+                        vectors_found = True
             if product != "" and product != "N/A":
                 product_result = await product_vector_store.asimilarity_search(
                     product, k=1
                 )
                 if product_result:
                     product_result = product_result[0].page_content
-                    result = {
-                        **result,
-                        "product": product_result,
-                    }
+                    if check_fuzz_score(product_result, product, 70):
+                        result = {
+                            **result,
+                            "product": product_result,
+                        }
+                        vectors_found = True
 
         except Exception as e:
             logger.error(f"Parsing error for alias: {software_alias}; {e}")
             return {
                 "__end__": True,
                 **state,
+                "vectors_found": vectors_found,
                 "error": str(e),
                 "info": "Error parsing alias",
             }
 
     logger.info(f"Parsed alias: {result}")
     parse_results.append(result)
-    return {**state, "software_info": result, "parse_results": parse_results}
+    return {
+        **state,
+        "software_info": result,
+        "parse_results": parse_results,
+        "vectors_found": vectors_found,
+        "info": "Vectors found" if vectors_found else "No suitable vectors found",
+    }

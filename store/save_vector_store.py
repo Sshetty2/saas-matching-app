@@ -1,9 +1,9 @@
 from langchain_core.vectorstores import InMemoryVectorStore
 from store.vector_path import get_vector_store_path
-import logging
+from logging_config import configure_logging
 from typing import Optional
 
-logger = logging.getLogger(__name__)
+logger = configure_logging()
 
 
 def save_vector_store(vs: InMemoryVectorStore, path: Optional[str] = None):

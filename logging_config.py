@@ -30,7 +30,8 @@ class CustomJsonFormatter(jsonlogger.JsonFormatter):
         # Add timestamp in ISO format
         log_record["timestamp"] = datetime.utcnow().isoformat()
         log_record["level"] = record.levelname
-        log_record["logger"] = record.name
+        log_record["function"] = record.funcName
+        log_record["module"] = record.module
 
         # Add error details if available
         if record.exc_info:

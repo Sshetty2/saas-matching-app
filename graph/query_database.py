@@ -1,11 +1,11 @@
 import logging
 from graph.workflow_state import WorkflowState
-from logging_config import log_execution_time
+from logging_config import log_execution_time, configure_logging
 from database.connection import get_pyodbc_connection, wrap_query_with_json_instructions
 import json
 from config import settings
 
-logger = logging.getLogger(__name__)
+logger = configure_logging()
 
 cpe_table_name = settings.db.db_table
 
@@ -34,8 +34,6 @@ def execute_query(query, params, query_type, db_connection):
 
 def query_database(state: WorkflowState) -> WorkflowState:
     results = None
-
-    query_attempts = state.get("query_attempts", 0)
 
     attempts = 1
 
@@ -108,7 +106,6 @@ def query_database(state: WorkflowState) -> WorkflowState:
                 "cpe_results": results,
                 "query_type": query_type,
                 "query_results": len(results),
-                "query_attempts": query_attempts + 1,
             }
         else:
             logger.info(

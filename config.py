@@ -49,6 +49,10 @@ class ExecutionConfig(BaseSettings):
     use_vector_store: Optional[bool] = Field(
         default=False, validation_alias="USE_VECTOR_STORE"
     )
+    retry_attempts: Optional[int] = Field(default=3, validation_alias="RETRY_ATTEMPTS")
+    max_concurrent_workflows: Optional[int] = Field(
+        default=3, validation_alias="MAX_CONCURRENT_WORKFLOWS"
+    )
 
     model_config = COMMON_SETTINGS_CONFIG
 

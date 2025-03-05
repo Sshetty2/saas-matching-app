@@ -267,7 +267,7 @@ if st.session_state.results:
             height=400,
         )
 
-        with st.expander("View Full Results", expanded=False):
-            st.json(st.session_state.results)
     else:
         st.warning("No CPE matches found in the results.")
+    with st.expander("View Full Results", expanded=False):
+        st.json(st.session_state.results)

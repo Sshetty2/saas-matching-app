@@ -1,13 +1,12 @@
 from textwrap import dedent
 from graph.workflow_state import WorkflowState, AnalysisResultPydantic
 from graph.get_ai_client import get_ai_client
-from logging_config import log_execution_time
+from logging_config import log_execution_time, configure_logging
 from graph.format_utils import format_software_info, format_cpe_matches
-import logging
 import json
 import inspect
 
-logger = logging.getLogger(__name__)
+logger = configure_logging()
 
 system_prompt = dedent(
     """
