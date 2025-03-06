@@ -31,7 +31,7 @@ async def find_matches(state: WorkflowState) -> WorkflowState:
 
     with log_execution_time(logger, f"Finding Matches for software: {software_alias}"):
         try:
-            model = SentenceTransformer(embedding_model_name)
+            model = SentenceTransformer(embedding_model_name, truncate_dim=512)
 
             cpe_texts = [cpe["ConfigurationsName"] for cpe in cpe_results]
 
@@ -47,10 +47,6 @@ async def find_matches(state: WorkflowState) -> WorkflowState:
                     "Vendor": cpe.get("Vendor", ""),
                     "Product": cpe.get("Product", ""),
                     "Version": cpe.get("Version", ""),
-                    "Updates": cpe.get("Updates", ""),
-                    "Edition": cpe.get("Edition", ""),
-                    "SW_Edition": cpe.get("SW_Edition", ""),
-                    "Target_SW": cpe.get("Target_SW", ""),
                     "Target_HW": cpe.get("Target_HW", ""),
                     "similarity_score": round(float(similarity), 2),
                 }
@@ -58,7 +54,7 @@ async def find_matches(state: WorkflowState) -> WorkflowState:
 
             ranked_results.sort(key=lambda x: x["similarity_score"], reverse=True)
 
-            top_matches = ranked_results[:3]
+            top_matches = ranked_results[:5]
 
             for match in top_matches:
                 if "similarity_score" in match:
