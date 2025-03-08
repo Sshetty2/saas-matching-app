@@ -44,6 +44,7 @@ def log_execution_time(logger: logging.Logger, operation: str):
     """Context manager to log operation execution time"""
     start_time = time.time()
     try:
+        logger.info(f"Starting operation {operation}")
         yield
     finally:
         execution_time = time.time() - start_time

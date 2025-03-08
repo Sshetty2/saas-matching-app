@@ -27,7 +27,6 @@ workflow_semaphore = asyncio.Semaphore(max_concurrent_workflows)
 product_vector_store = None
 vendor_vector_store = None
 
-logger.info("Loading Vector Stores")
 with log_execution_time(logger, "Loading Vector Stores"):
     if product_vector_store is None:
         product_vector_store = load_vector_store("product")
@@ -90,7 +89,6 @@ async def run_workflow(software_alias: str):
         global product_vector_store
         global vendor_vector_store
 
-        logger.info("Loading Vector Stores")
         with log_execution_time(logger, "Loading Vector Stores"):
             if product_vector_store is None:
                 product_vector_store = load_vector_store("product")

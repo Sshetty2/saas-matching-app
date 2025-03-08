@@ -2,3 +2,5 @@
 .env
 *vector_store*
 logs/
+
+volumes/

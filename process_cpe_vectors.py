@@ -73,8 +73,6 @@ def process_cpe_vectors(prefix: Optional[str] = None):
         logger.error("No CPE records found in the database.")
         return
 
-    logger.info(f"Processing {len(cpe_records)} CPE vectors for vector store")
-
     with log_execution_time(
         logger, f"Processing {len(cpe_records)} CPE vectors for vector store"
     ):

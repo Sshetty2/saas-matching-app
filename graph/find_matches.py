@@ -27,11 +27,9 @@ async def find_matches(state: WorkflowState) -> WorkflowState:
             "info": "No CPE results found from the database",
         }
 
-    logger.info(f"Finding top 3 CPE Matches for alias: {software_alias}")
-
     with log_execution_time(logger, f"Finding Matches for software: {software_alias}"):
         try:
-            model = SentenceTransformer(embedding_model_name, truncate_dim=512)
+            model = SentenceTransformer(embedding_model_name)
 
             cpe_texts = [cpe["ConfigurationsName"] for cpe in cpe_results]
 

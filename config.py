@@ -67,6 +67,9 @@ class DBConfig(BaseSettings):
     db_password: Optional[SecretStr] = Field(
         default=None, validation_alias="DB_PASSWORD"
     )
+    redis_host: Optional[str] = Field(default=None, validation_alias="REDIS_HOST")
+    redis_port: Optional[int] = Field(default=None, validation_alias="REDIS_PORT")
+    redis_db: Optional[int] = Field(default=None, validation_alias="REDIS_DB")
 
     model_config = COMMON_SETTINGS_CONFIG
 
