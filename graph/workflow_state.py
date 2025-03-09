@@ -1,28 +1,30 @@
-from typing import Optional, TypedDict, Any
+from typing import Optional, TypedDict
 from pydantic import BaseModel, Field
-import pyodbc
 
-## TODO: consolidate models
+# TODO: consolidate models
 
 
-# need seperate models for validation
-class AnalysisResultPydantic(BaseModel):
-    match_type: str = Field(
+class MatchResultPydantic(BaseModel):
+    id: str = Field(
         ...,
-        description="The type of match: 'Exact Match', 'Close Match', 'General Match', or 'No Match'.",
-    )
-    confidence_score: int = Field(
-        ...,
-        ge=0,
-        le=100,
-        description="Confidence score (0-100) based on how closely the software alias matches the CPE record.",
-    )
-    matched_cpe: str = Field(
-        ..., description="The CPE string that best matches the software alias."
+        description="The CPE ID that best matches the software alias.",
     )
     reasoning: str = Field(
         ...,
         description="A brief explanation of why this match was chosen and the confidence score given.",
+    )
+
+
+# need seperate models for validation
+class AnalysisResultPydantic(BaseModel):
+
+    best_match: MatchResultPydantic = Field(
+        ...,
+        description="The best match for the software alias.",
+    )
+    possible_matches: list[MatchResultPydantic] = Field(
+        ...,
+        description="A list of possible matches for the software alias.",
     )
 
 
@@ -44,12 +46,15 @@ class SoftwareInfoPydantic(BaseModel):
     )
 
 
+class MatchResult(TypedDict):
+    id: str
+    reasoning: str
+
+
 # need seperate models for langchain validation
 class AnalysisResult(TypedDict):
-    match_type: str
-    confidence_score: int
-    matched_cpe: str
-    reasoning: str
+    best_match: MatchResult
+    possible_matches: list[MatchResult]
 
 
 class SoftwareInfo(TypedDict):
@@ -62,25 +67,14 @@ class SoftwareInfo(TypedDict):
 class WorkflowState(TypedDict):
     software_alias: str
     software_info: Optional[SoftwareInfo]
-    cpe_match: Optional[list[AnalysisResult]]
+    cpe_matches: Optional[AnalysisResult]
+    product_search_results: Optional[list[str]]
+    matched_products: Optional[list[str]]
     cpe_results: Optional[list]
-    top_matches: Optional[list]
     error: Optional[str]
     info: Optional[str]
-    query_type: Optional[
-        str
-    ]  ## used to track the type of query used to find the CPE results
-    query_results: Optional[
-        int
-    ]  ## used to track the number of results found from the query
-    parse_results: Optional[
-        list[SoftwareInfo]
-    ]  ## parse results based on AI and loose vector search
-    ai_parse_results: Optional[list[SoftwareInfo]]  ## parse results directly from AI
-    product_vector_store: Optional[Any]
-    vendor_vector_store: Optional[Any]
+    parse_results: Optional[list[SoftwareInfo]]
     attempts: Optional[int]
-    vectors_found: Optional[bool]
 
 
 class CPEResult(TypedDict):

@@ -1,8 +1,6 @@
-import os
 from ollama import AsyncClient
 from openai import AsyncOpenAI
 from pydantic import BaseModel
-from graph.workflow_state import SoftwareInfoPydantic
 import json
 from config import settings
 
@@ -10,20 +8,14 @@ openai_api_key = settings.llm.openai_api_key.get_secret_value()
 
 
 def use_local_model_client(
-    validation_model: BaseModel, system_prompt: str, user_prompt: str, mode: str
+    validation_model: BaseModel, system_prompt: str, user_prompt: str
 ):
     ollama_client = AsyncClient()
 
-    local_analysis_model = settings.llm.local_analysis_model
-    local_parse_model = settings.llm.local_parse_model
-
-    if mode == "analysis":
-        model = local_analysis_model
-    else:
-        model = local_parse_model
+    local_model = settings.llm.local_model
 
     model_args = {
-        "model": model,
+        "model": local_model,
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
@@ -34,19 +26,13 @@ def use_local_model_client(
     return ollama_client.chat, model_args
 
 
-def use_openai_client(system_prompt: str, user_prompt: str, mode: str):
+def use_openai_client(system_prompt: str, user_prompt: str):
     openai_client = AsyncOpenAI(api_key=openai_api_key)
 
-    openai_analysis_model = settings.llm.openai_analysis_model
-    openai_parse_model = settings.llm.openai_parse_model
-
-    if mode == "analysis":
-        model = openai_analysis_model
-    else:
-        model = openai_parse_model
+    openai_model = settings.llm.openai_model
 
     model_args = {
-        "model": model,
+        "model": openai_model,
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
@@ -75,23 +61,17 @@ def parse_response_function_openai(response: str, _: BaseModel):
             result = json.loads(json_match.group(1))
             return result
         else:
-            raise ValueError(
-                f"Could not parse JSON from model response for alias: {software_alias}"
-            )
+            raise ValueError("Could not parse JSON from model response")
 
 
-def get_ai_client(
-    validation_model: BaseModel, system_prompt: str, user_prompt: str, mode: str
-):
+def get_ai_client(validation_model: BaseModel, system_prompt: str, user_prompt: str):
     use_local_model = settings.execution.use_local_model
 
     if use_local_model:
         completion_function, model_args = use_local_model_client(
-            validation_model, system_prompt, user_prompt, mode
+            validation_model, system_prompt, user_prompt
         )
         return completion_function, model_args, parse_response_function_local
     else:
-        completion_function, model_args = use_openai_client(
-            system_prompt, user_prompt, mode
-        )
+        completion_function, model_args = use_openai_client(system_prompt, user_prompt)
         return completion_function, model_args, parse_response_function_openai

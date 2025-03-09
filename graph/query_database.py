@@ -1,119 +1,98 @@
-import logging
 from graph.workflow_state import WorkflowState
 from logging_config import log_execution_time, configure_logging
-from database.connection import get_pyodbc_connection, wrap_query_with_json_instructions
-import json
+from database.connection import get_pyodbc_connection
 from config import settings
+import re
 
 logger = configure_logging()
 
 cpe_table_name = settings.db.db_table
 
-vendor_and_product_query = (
-    f"SELECT * FROM {cpe_table_name} WHERE product LIKE ? AND vendor LIKE ?"
-)
-product_query = f"SELECT * FROM {cpe_table_name} WHERE product LIKE ?"
-vendor_query = f"SELECT * FROM {cpe_table_name} WHERE vendor LIKE ?"
+
+def extract_major_minor_version(version):
+    """Extracts major and minor version numbers from a version string."""
+    match = re.match(r"(\d+)(?:\.(\d+))?", version)  # Matches `X` or `X.Y`
+    if match:
+        major = match.group(1)
+        minor = match.group(2) if match.group(2) else None
+        return major, minor
+    return None, None
 
 
-def execute_query(query, params, query_type, db_connection):
-    logger.info(
-        f"Executing query: {query} with params: {params} and query_type: {query_type}"
-    )
+def filter_cpe_results(cpe_results, software_version):
+    """Filters CPE records based on major and minor version constraints."""
+
+    major_version, minor_version = extract_major_minor_version(software_version)
+
+    if not major_version or len(cpe_results) < 50:
+        return cpe_results
+
+    filtered_results = [
+        record for record in cpe_results if record["Version"].startswith(major_version)
+    ]
+
+    if len(filtered_results) > 100 and minor_version:
+        first_digit_minor = minor_version[0]
+        filtered_results = [
+            record
+            for record in filtered_results
+            if re.match(rf"^{major_version}\.{first_digit_minor}", record["Version"])
+        ]
+
+    return filtered_results
+
+
+def execute_query(query, params, db_connection):
     cursor = db_connection.cursor()
-    query = wrap_query_with_json_instructions(query)
     cursor.execute(query, params)
     results = cursor.fetchall()
+    columns = [column[0] for column in cursor.description]
+    data = [dict(zip(columns, row)) for row in results]
     cursor.close()
-    results = results[0][0] if results else None
-    if results:
-        return json.loads(results)
-    else:
-        return None
+    return data
 
 
 def query_database(state: WorkflowState) -> WorkflowState:
     results = None
 
-    attempts = 1
+    matched_products = state.get("matched_products", [])
+
+    if not matched_products:
+        return state
+
+    matched_products_without_vendor = [
+        product_dict.get("product") for product_dict in matched_products
+    ]
 
     software_alias = state.get("software_alias", "")
     software_info = state.get("software_info", {})
-    product = software_info.get("product", "")
-    vendor = software_info.get("vendor", "")
     version = software_info.get("version", "")
+    placeholders = ", ".join(["?"] * len(matched_products_without_vendor))
 
-    query_type = None
+    query = f"""
+        SELECT Product, Vendor, Version, ConfigurationsName, CPEConfigurationID
+        FROM tb_CPEConfiguration
+        WHERE Product IN ({placeholders})
+    """
 
     db_connection = get_pyodbc_connection()
 
     with log_execution_time(
         logger,
-        f"Querying Database for {software_alias}",
+        f"Querying Database for {software_alias} matched products: {matched_products_without_vendor}",
     ):
-        try:
 
-            while not results and attempts <= 3:
-                if attempts == 1:
-                    if not product or product == "N/A" or not vendor or vendor == "N/A":
-                        attempts += 1
-                        continue
-                    query_type = "vendor_and_product"
-                    params = (f"%{product}%", f"%{vendor}%")
-                    results = execute_query(
-                        vendor_and_product_query,
-                        params,
-                        query_type,
-                        db_connection,
-                    )
-                elif attempts == 2:
-                    if not vendor or vendor == "N/A":
-                        attempts += 1
-                        continue
-                    query_type = "vendor"
-                    params = (f"%{vendor}%",)
-                    results = execute_query(
-                        vendor_query,
-                        params,
-                        query_type,
-                        db_connection,
-                    )
-                elif attempts == 3:
-                    if not product or product == "N/A":
-                        attempts += 1
-                        continue
-                    query_type = "product"
-                    params = (f"%{product}%",)
-                    results = execute_query(
-                        product_query,
-                        params,
-                        query_type,
-                        db_connection,
-                    )
-                if results:
-                    break
-                attempts += 1
-        except Exception as e:
-            logger.error(f"Failed to fetch results for alias: {software_alias}; {e}")
-            return {"__end__": True, **state, "error": str(e)}
+        results = execute_query(query, matched_products_without_vendor, db_connection)
 
-        if results:
-            logger.info(
-                f"Successfully queried CPE Database for {software_alias} with {len(results)} records"
-            )
-            return {
-                **state,
-                "cpe_results": results,
-                "query_type": query_type,
-                "query_results": len(results),
-            }
-        else:
-            logger.info(
-                f"No results found from CPE Database for alias: {software_alias}"
-            )
-            return {
-                "__end__": True,
-                **state,
-                "match_type": "No Match",
-                "info": "No results found from CPE Database",
-            }
+        logger.info(f"Found {len(results)} results")
+
+        filtered_results = filter_cpe_results(results, version)
+
+        logger.info(
+            f"Queried CPE Database for {software_alias} and matched products: {matched_products_without_vendor} with {len(filtered_results)} filtered records"
+        )
+
+        return {
+            **state,
+            "cpe_results": filtered_results,
+        }

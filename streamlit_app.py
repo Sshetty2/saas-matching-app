@@ -8,9 +8,9 @@ asyncio.set_event_loop(loop)
 
 import streamlit as st
 import pandas as pd
-import logging
 from graph.workflow import run_workflows_parallel
 from config import settings
+
 
 if "software_inputs" not in st.session_state:
     st.session_state.software_inputs = [""]
@@ -74,24 +74,14 @@ def update_model_setting():
     )
 
 
-def update_local_analysis_model():
-    """Update the local analysis model setting"""
-    settings.llm.local_analysis_model = st.session_state.local_analysis_model
+def update_local_model():
+    """Update the Local Model setting"""
+    settings.llm.local_model = st.session_state.local_model
 
 
-def update_local_parse_model():
-    """Update the local parse model setting"""
-    settings.llm.local_parse_model = st.session_state.local_parse_model
-
-
-def update_openai_analysis_model():
-    """Update the OpenAI analysis model setting"""
-    settings.llm.openai_analysis_model = st.session_state.openai_analysis_model
-
-
-def update_openai_parse_model():
-    """Update the OpenAI parse model setting"""
-    settings.llm.openai_parse_model = st.session_state.openai_parse_model
+def update_openai_model():
+    """Update the OpenAI model setting"""
+    settings.llm.openai_model = st.session_state.openai_model
 
 
 with st.sidebar:
@@ -112,96 +102,56 @@ with st.sidebar:
     if settings.execution.use_local_model:
         st.subheader("Local Model Settings")
 
-        local_analysis_options = [
+        local_model_options = [
             "deepseek-r1:14b",
             "qwen2.5:14b",
             "qwen2.5:32b",
             "llama3.1:8b",
             "gemma2:27b",
         ]
-        local_analysis_default = (
-            local_analysis_options.index(settings.llm.local_analysis_model)
-            if settings.llm.local_analysis_model in local_analysis_options
+        local_model_default = (
+            local_model_options.index(settings.llm.local_model)
+            if settings.llm.local_model in local_model_options
             else 0
         )
 
         st.selectbox(
-            "Analysis Model",
-            options=local_analysis_options,
-            index=local_analysis_default,
-            key="local_analysis_model",
-            on_change=update_local_analysis_model,
+            "Local Model",
+            options=local_model_options,
+            index=local_model_default,
+            key="local_model",
+            on_change=update_local_model,
             help="Model used for analyzing and scoring CPE matches",
         )
 
-        local_parse_options = [
-            "qwen2.5:14b",
-            "qwen2.5:32b",
-            "deepseek-r1:14b",
-            "llama3.1:8b",
-            "gemma2:27b",
-        ]
-        local_parse_default = (
-            local_parse_options.index(settings.llm.local_parse_model)
-            if settings.llm.local_parse_model in local_parse_options
-            else 0
-        )
-
-        st.selectbox(
-            "Parse Model",
-            options=local_parse_options,
-            index=local_parse_default,
-            key="local_parse_model",
-            on_change=update_local_parse_model,
-            help="Model used for parsing software names",
-        )
     else:
         st.subheader("OpenAI Model Settings")
 
-        openai_analysis_options = ["gpt-4o-mini", "gpt-4o"]
-        openai_analysis_default = (
-            openai_analysis_options.index(settings.llm.openai_analysis_model)
-            if settings.llm.openai_analysis_model in openai_analysis_options
+        openai_model_options = ["gpt-4o-mini", "gpt-4o"]
+        openai_model_default = (
+            openai_model_options.index(settings.llm.openai_model)
+            if settings.llm.openai_model in openai_model_options
             else 0
         )
 
         st.selectbox(
-            "Analysis Model",
-            options=openai_analysis_options,
-            index=openai_analysis_default,
-            key="openai_analysis_model",
-            on_change=update_openai_analysis_model,
+            "OpenAI Model",
+            options=openai_model_options,
+            index=openai_model_default,
+            key="openai_model",
+            on_change=update_openai_model,
             help="OpenAI model used for analyzing and scoring CPE matches",
-        )
-
-        openai_parse_options = ["gpt-4o-mini", "gpt-4o"]
-        openai_parse_default = (
-            openai_parse_options.index(settings.llm.openai_parse_model)
-            if settings.llm.openai_parse_model in openai_parse_options
-            else 0
-        )
-
-        st.selectbox(
-            "Parse Model",
-            options=openai_parse_options,
-            index=openai_parse_default,
-            key="openai_parse_model",
-            on_change=update_openai_parse_model,
-            help="OpenAI model used for parsing software names",
         )
 
     st.subheader("Current Configuration")
     st.write(f"Using Local Model: {settings.execution.use_local_model}")
 
     if settings.execution.use_local_model:
-        st.write(f"Analysis Model: {settings.llm.local_analysis_model}")
-        st.write(f"Parse Model: {settings.llm.local_parse_model}")
+        st.write(f"Local Model: {settings.llm.local_model}")
     else:
-        st.write(f"Analysis Model: {settings.llm.openai_analysis_model}")
-        st.write(f"Parse Model: {settings.llm.openai_parse_model}")
+        st.write(f"OpenAI Model: {settings.llm.openai_model}")
 
     st.write(f"Embedding Model: {settings.llm.embedding_model}")
-    st.write(f"Using Vector Store: {settings.execution.use_vector_store}")
 
 
 col1, col2, col3 = st.columns([1, 2, 1])
@@ -236,40 +186,47 @@ with col2:
 if st.session_state.results:
     st.subheader("CPE Matching Results")
 
-    cpe_matches_data = []
-
     for result in st.session_state.results:
-        if result and "cpe_match" in result:
-            match_data = {
-                "software_alias": result.get("software_alias", "Unknown"),
-                **result.get("cpe_match", {}),
-                "info": result.get("info", ""),
-                "error": result.get("error", ""),
-            }
-            cpe_matches_data.append(match_data)
+        if result:
+            with st.container():
+                st.markdown("---")
 
-    if cpe_matches_data:
-        df = pd.DataFrame(cpe_matches_data)
+                st.markdown(
+                    f"#### Software: **{result.get('software_alias', 'Unknown')}**"
+                )
 
-        columns = [
-            "software_alias",
-            "match_type",
-            "confidence_score",
-            "matched_cpe",
-            "reasoning",
-            "info",
-            "error",
-        ]
-        available_columns = [col for col in columns if col in df.columns]
-        df = df[available_columns]
+                if "info" in result and result["info"]:
+                    st.info(result["info"])
+                if "error" in result and result["error"]:
+                    st.error(result["error"])
 
-        st.dataframe(
-            df,
-            use_container_width=True,
-            height=400,
-        )
+                if "cpe_matches" in result:
+                    cpe_matches = result["cpe_matches"]
 
-    else:
-        st.warning("No CPE matches found in the results.")
+                    print(f"CPE Matches: {cpe_matches}")
+                    if "best_match" in cpe_matches:
+                        best_match = cpe_matches["best_match"]
+                        st.markdown("##### Best Match")
+                        st.markdown(f"**CPE ID:** `{best_match.get('cpe_id', 'N/A')}`")
+                        st.markdown(
+                            f"**Reasoning:** {best_match.get('reasoning', 'N/A')}"
+                        )
+
+                    if (
+                        "possible_matches" in cpe_matches
+                        and cpe_matches["possible_matches"]
+                    ):
+                        with st.expander("Possible Matches", expanded=False):
+                            for i, match in enumerate(cpe_matches["possible_matches"]):
+                                st.markdown(f"**Match {i+1}**")
+                                st.markdown(
+                                    f"**CPE ID:** `{match.get('cpe_id', 'N/A')}`"
+                                )
+                                st.markdown(
+                                    f"**Reasoning:** {match.get('reasoning', 'N/A')}"
+                                )
+                                if i < len(cpe_matches["possible_matches"]) - 1:
+                                    st.markdown("---")
+
     with st.expander("View Full Results", expanded=False):
         st.json(st.session_state.results)

@@ -21,17 +21,11 @@ class LLMConfig(BaseSettings):
     openai_api_key: Optional[SecretStr] = Field(
         default=None, validation_alias="OPENAI_API_KEY"
     )
-    openai_analysis_model: Optional[str] = Field(
-        default="gpt-4o", validation_alias="OPENAI_ANALYSIS_MODEL"
+    openai_model: Optional[str] = Field(
+        default="gpt-4o", validation_alias="OPENAI_MODEL"
     )
-    openai_parse_model: Optional[str] = Field(
-        default="gpt-4o", validation_alias="OPENAI_PARSE_MODEL"
-    )
-    local_analysis_model: Optional[str] = Field(
-        default="deepseek-r1:14b", validation_alias="LOCAL_ANALYSIS_MODEL"
-    )
-    local_parse_model: Optional[str] = Field(
-        default="qwen2.5:14b", validation_alias="LOCAL_PARSE_MODEL"
+    local_model: Optional[str] = Field(
+        default="qwen2.5:14b", validation_alias="LOCAL_MODEL"
     )
     embedding_model: Optional[str] = Field(
         default="all-MiniLM-L6-v2", validation_alias="EMBEDDING_MODEL"
@@ -45,9 +39,6 @@ class ExecutionConfig(BaseSettings):
 
     use_local_model: Optional[bool] = Field(
         default=True, validation_alias="USE_LOCAL_MODEL"
-    )
-    use_vector_store: Optional[bool] = Field(
-        default=False, validation_alias="USE_VECTOR_STORE"
     )
     retry_attempts: Optional[int] = Field(default=2, validation_alias="RETRY_ATTEMPTS")
     max_concurrent_workflows: Optional[int] = Field(
@@ -67,9 +58,16 @@ class DBConfig(BaseSettings):
     db_password: Optional[SecretStr] = Field(
         default=None, validation_alias="DB_PASSWORD"
     )
-    redis_host: Optional[str] = Field(default=None, validation_alias="REDIS_HOST")
-    redis_port: Optional[int] = Field(default=None, validation_alias="REDIS_PORT")
-    redis_db: Optional[int] = Field(default=None, validation_alias="REDIS_DB")
+
+    model_config = COMMON_SETTINGS_CONFIG
+
+
+class RedisConfig(BaseSettings):
+    """Configuration for Redis settings"""
+
+    host: Optional[str] = Field(default=None, validation_alias="REDIS_HOST")
+    port: Optional[int] = Field(default=None, validation_alias="REDIS_PORT")
+    db: Optional[int] = Field(default=None, validation_alias="REDIS_DB")
 
     model_config = COMMON_SETTINGS_CONFIG
 
@@ -88,6 +86,7 @@ class Settings(BaseSettings):
 
     llm: LLMConfig = Field(default_factory=LLMConfig)
     db: DBConfig = Field(default_factory=DBConfig)
+    redis: RedisConfig = Field(default_factory=RedisConfig)
     execution: ExecutionConfig = Field(default_factory=ExecutionConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
 

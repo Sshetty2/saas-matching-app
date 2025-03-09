@@ -7,7 +7,7 @@ from redis.commands.search.query import Query
 import numpy as np
 from config import settings
 import asyncio
-from thefuzz import fuzz
+
 
 # Initialize event loop before other imports to prevent
 # "There is no current event loop in thread" errors,
@@ -26,13 +26,18 @@ asyncio.set_event_loop(loop)
 #     )
 
 
+redis_host = settings.redis.host
+redis_port = settings.redis.port
+redis_db = settings.redis.db
+
+
 async def test_redis_vector_search():
     # Initialize the model and Redis client
     model = SentenceTransformer(settings.llm.embedding_model, truncate_dim=512)
-    redis_client = redis.Redis(host="localhost", port=6379, db=0)
+    redis_client = redis.Redis(host=redis_host, port=redis_port, db=redis_db)
 
     # Query to search for
-    query = "search_query: agent_ransack"
+    query = "search_query: apache_tomcat"
     print(f"Searching for: {query}")
 
     # Encode the query
@@ -40,10 +45,10 @@ async def test_redis_vector_search():
 
     # Create a vector query using the proper Redis-py syntax
     query = (
-        Query(f"*=>[KNN 15 @embedding $query_vector AS score]")
+        Query("*=>[KNN 3 @embedding $query_vector AS score]")
         .sort_by("score")
         .dialect(2)
-        .return_fields("metadata", "score", "vendor")
+        .return_fields("metadata", "score", "vendor", "product")
     )
 
     # Execute the search with the query vector
@@ -62,7 +67,8 @@ async def test_redis_vector_search():
             print(f"  Key: {doc.id}")
             print(f"  Score: {doc.score}")
             print(f"  Vendor: {doc.vendor}")
-            print()
+            print(f"  Product: {doc.product}")
+
     else:
         print("No matches found")
 

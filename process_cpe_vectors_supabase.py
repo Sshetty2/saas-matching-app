@@ -1,22 +1,18 @@
-""" REDIS CURRENTLY IN USE FOR VECTOR STORE """
-
-"""Will be used to process the CPE record vectors and save them to disk."""
-
-"""This will need to run periodically to update the vector store."""
-
-
-import os
-from sentence_transformers import SentenceTransformer
 from database.connection import get_pyodbc_connection, wrap_query_with_json_instructions
 from store.get_embedding_model import get_embedding_model
 from logging_config import log_execution_time, configure_logging
 from typing import Optional
 from config import settings
 import asyncio
-import argparse
 from langchain_community.vectorstores import SupabaseVectorStore
 from supabase.client import Client, create_client
 import json
+
+""" REDIS CURRENTLY IN USE FOR VECTOR STORE """
+
+"""Will be used to process the CPE record vectors and save them to disk."""
+
+"""This will need to run periodically to update the vector store."""
 
 supabase_url = settings.db.supabase_url
 supabase_key = settings.db.supabase_key

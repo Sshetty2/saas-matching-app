@@ -16,30 +16,50 @@ def format_software_info(software_info):
     )
 
 
-def format_cpe_matches(top_matches):
-    """Format CPE matches into a readable string."""
-    if not top_matches:
+def format_product_matches(product_matches):
+    """Format product matches into a readable string."""
+    if not product_matches:
         return "No matches found."
 
     result = []
-    for i, match in enumerate(top_matches, 1):
-        cpe_id = match.get("CPE_ID", match.get("ConfigurationsName", "N/A"))
-        vendor = match.get("Vendor", "N/A")
-        product = match.get("Product", "N/A")
-        version = match.get("Version", "N/A")
-        target_hardware = match.get("Target_HW", "N/A")
+    for i, match in enumerate(product_matches, 1):
+        vendor = match.get("vendor", "N/A")
+        product = match.get("product", "N/A")
 
         result.append(
             dedent(
                 f"""
                 Top Match #{i}:
-                CPE ID: {cpe_id}
                 Vendor: {vendor}
                 Product: {product}
-                Version: {version}
-                Target Hardware: {target_hardware}
                 """
             )
         )
 
     return "\n".join(result)
+
+
+def format_cpe_results(cpe_results):
+    """Format CPE results into a readable string."""
+    results = []
+
+    for cpe_result in cpe_results:
+        vendor = cpe_result.get("Vendor", "N/A")
+        product = cpe_result.get("Product", "N/A")
+        version = cpe_result.get("Version", "N/A")
+        cpe_id = cpe_result.get("ConfigurationsName", "N/A")
+        db_cpe_id = cpe_result.get("CPEConfigurationID", "N/A")
+
+        results.append(
+            dedent(
+                f"""
+                ID: {db_cpe_id}
+                CPE: {cpe_id}
+                Vendor: {vendor}
+                Product: {product}
+                Version: {version}
+                """
+            )
+        )
+
+    return "\n".join(results)

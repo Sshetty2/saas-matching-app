@@ -18,9 +18,9 @@ class DateTimeEncoder(json.JSONEncoder):
         return super().default(obj)
 
 
-redis_host = settings.db.redis_host
-redis_port = settings.db.redis_port
-redis_db = settings.db.redis_db
+redis_host = settings.redis.host
+redis_port = settings.redis.port
+redis_db = settings.redis.db
 
 logger = configure_logging()
 embedding_model_name = settings.llm.embedding_model
@@ -60,9 +60,9 @@ def process_cpe_vectors(mode):
     initial_offset = offset
 
     if is_vendor:
-        select_query = f"SELECT DISTINCT Vendor"
+        select_query = "SELECT DISTINCT Vendor"
     else:
-        select_query = f"SELECT DISTINCT Vendor, Product"
+        select_query = "SELECT DISTINCT Vendor, Product"
 
     with log_execution_time(logger, "Processing CPE vectors for vector store"):
         while True:
@@ -121,7 +121,7 @@ def process_cpe_vectors(mode):
                         "embedding": embedding,
                     }
                 else:
-                    ## store both vendor and product for product mode
+                    # store both vendor and product for product mode
                     mapping = {
                         "product": data_item,
                         "vendor": vendor,
