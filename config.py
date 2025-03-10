@@ -22,11 +22,18 @@ class LLMConfig(BaseSettings):
         default=None, validation_alias="OPENAI_API_KEY"
     )
     openai_model: Optional[str] = Field(
-        default="gpt-4o", validation_alias="OPENAI_MODEL"
+        default="gpt-4o-mini", validation_alias="OPENAI_MODEL"
+    )
+    openai_retry_model: Optional[str] = Field(
+        default="gpt-4o", validation_alias="OPENAI_RETRY_MODEL"
     )
     local_model: Optional[str] = Field(
         default="qwen2.5:14b", validation_alias="LOCAL_MODEL"
     )
+    local_retry_model: Optional[str] = Field(
+        default="qwen2.5:32b", validation_alias="LOCAL_RETRY_MODEL"
+    )
+
     embedding_model: Optional[str] = Field(
         default="all-MiniLM-L6-v2", validation_alias="EMBEDDING_MODEL"
     )
@@ -40,7 +47,7 @@ class ExecutionConfig(BaseSettings):
     use_local_model: Optional[bool] = Field(
         default=True, validation_alias="USE_LOCAL_MODEL"
     )
-    retry_attempts: Optional[int] = Field(default=2, validation_alias="RETRY_ATTEMPTS")
+    retry_attempts: Optional[int] = Field(default=1, validation_alias="RETRY_ATTEMPTS")
     max_concurrent_workflows: Optional[int] = Field(
         default=3, validation_alias="MAX_CONCURRENT_WORKFLOWS"
     )

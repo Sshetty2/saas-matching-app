@@ -3,16 +3,23 @@ from openai import AsyncOpenAI
 from pydantic import BaseModel
 import json
 from config import settings
+from typing import Optional
 
 openai_api_key = settings.llm.openai_api_key.get_secret_value()
 
 
 def use_local_model_client(
-    validation_model: BaseModel, system_prompt: str, user_prompt: str
+    validation_model: BaseModel,
+    system_prompt: str,
+    user_prompt: str,
+    use_retry_model: Optional[bool] = False,
 ):
     ollama_client = AsyncClient()
 
-    local_model = settings.llm.local_model
+    if use_retry_model:
+        local_model = settings.llm.local_retry_model
+    else:
+        local_model = settings.llm.local_model
 
     model_args = {
         "model": local_model,
@@ -26,10 +33,15 @@ def use_local_model_client(
     return ollama_client.chat, model_args
 
 
-def use_openai_client(system_prompt: str, user_prompt: str):
+def use_openai_client(
+    system_prompt: str, user_prompt: str, use_retry_model: Optional[bool] = False
+):
     openai_client = AsyncOpenAI(api_key=openai_api_key)
 
-    openai_model = settings.llm.openai_model
+    if use_retry_model:
+        openai_model = settings.llm.openai_retry_model
+    else:
+        openai_model = settings.llm.openai_model
 
     model_args = {
         "model": openai_model,
@@ -64,14 +76,21 @@ def parse_response_function_openai(response: str, _: BaseModel):
             raise ValueError("Could not parse JSON from model response")
 
 
-def get_ai_client(validation_model: BaseModel, system_prompt: str, user_prompt: str):
+def get_ai_client(
+    validation_model: BaseModel,
+    system_prompt: str,
+    user_prompt: str,
+    use_retry_model: Optional[bool] = False,
+):
     use_local_model = settings.execution.use_local_model
 
     if use_local_model:
         completion_function, model_args = use_local_model_client(
-            validation_model, system_prompt, user_prompt
+            validation_model, system_prompt, user_prompt, use_retry_model
         )
         return completion_function, model_args, parse_response_function_local
     else:
-        completion_function, model_args = use_openai_client(system_prompt, user_prompt)
+        completion_function, model_args = use_openai_client(
+            system_prompt, user_prompt, use_retry_model
+        )
         return completion_function, model_args, parse_response_function_openai

@@ -5,9 +5,9 @@ from pydantic import BaseModel, Field
 
 
 class MatchResultPydantic(BaseModel):
-    id: str = Field(
+    id: int = Field(
         ...,
-        description="The CPE ID that best matches the software alias.",
+        description="The ID of the CPE record that best matches the software alias.",
     )
     reasoning: str = Field(
         ...,
@@ -17,7 +17,6 @@ class MatchResultPydantic(BaseModel):
 
 # need seperate models for validation
 class AnalysisResultPydantic(BaseModel):
-
     best_match: MatchResultPydantic = Field(
         ...,
         description="The best match for the software alias.",
@@ -47,7 +46,7 @@ class SoftwareInfoPydantic(BaseModel):
 
 
 class MatchResult(TypedDict):
-    id: str
+    id: int
     reasoning: str
 
 
@@ -64,6 +63,16 @@ class SoftwareInfo(TypedDict):
     inference_reasoning: str
 
 
+class AuditResultPydantic(BaseModel):
+    restart: bool
+    reasoning: str
+
+
+class AuditResult(TypedDict):
+    restart: bool
+    reasoning: str
+
+
 class WorkflowState(TypedDict):
     software_alias: str
     software_info: Optional[SoftwareInfo]
@@ -73,6 +82,9 @@ class WorkflowState(TypedDict):
     cpe_results: Optional[list]
     error: Optional[str]
     info: Optional[str]
+    exact_match: Optional[dict]
+    attempts: Optional[int]
+    audit_result: Optional[AuditResult]
     parse_results: Optional[list[SoftwareInfo]]
     attempts: Optional[int]
 

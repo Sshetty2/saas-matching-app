@@ -106,6 +106,7 @@ with st.sidebar:
             "deepseek-r1:14b",
             "qwen2.5:14b",
             "qwen2.5:32b",
+            "llama3:8b",
             "llama3.1:8b",
             "gemma2:27b",
         ]
@@ -200,11 +201,15 @@ if st.session_state.results:
                 if "error" in result and result["error"]:
                     st.error(result["error"])
 
-                if "cpe_matches" in result:
+                if result.get("exact_match"):
+                    exact_match = result["exact_match"]
+                    st.markdown("##### Exact Match")
+                    st.markdown(f"**CPE ID:** `{exact_match}`")
+
+                if result.get("cpe_matches"):
                     cpe_matches = result["cpe_matches"]
 
-                    print(f"CPE Matches: {cpe_matches}")
-                    if "best_match" in cpe_matches:
+                    if cpe_matches.get("best_match"):
                         best_match = cpe_matches["best_match"]
                         st.markdown("##### Best Match")
                         st.markdown(f"**CPE ID:** `{best_match.get('cpe_id', 'N/A')}`")
@@ -212,9 +217,8 @@ if st.session_state.results:
                             f"**Reasoning:** {best_match.get('reasoning', 'N/A')}"
                         )
 
-                    if (
-                        "possible_matches" in cpe_matches
-                        and cpe_matches["possible_matches"]
+                    if "possible_matches" in cpe_matches and cpe_matches.get(
+                        "possible_matches"
                     ):
                         with st.expander("Possible Matches", expanded=False):
                             for i, match in enumerate(cpe_matches["possible_matches"]):

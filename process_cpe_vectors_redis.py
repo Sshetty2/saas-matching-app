@@ -110,7 +110,10 @@ def process_cpe_vectors(mode):
             for i, search_document in enumerate(search_documents):
                 item = cpe_data_item_by_id[search_document]
                 data_item = item.get(db_property, "unknown")
-                redis_key = f"{mode}:{data_item}"
+                if mode == "vendor":
+                    redis_key = f"{mode}:{data_item}"
+                else:
+                    redis_key = f"{mode}:{item['Vendor']}/{item['Product']}"
 
                 vendor = item.get("Vendor", "unknown")
 

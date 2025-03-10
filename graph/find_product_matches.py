@@ -66,6 +66,7 @@ system_prompt = dedent(
     1. Compare the original software alias and parsed software info with the top product matches after a vector search.
     2. Evaluate whether the vendor and product names match logically to the software alias and / or parsed software info.
     3. If a match is valid, add it to the **final list of matched products**.
+    4. If unsure, please add the product to the **possible matches** list.
 
     NOTE: Many product names may include 'escape' or 'special' characters and the product name should be returned as is. 
     There may be semantic differences but the product would still be a valid match.
@@ -110,6 +111,7 @@ async def find_product_matches(state: WorkflowState):
     software_info = state.get("software_info", {})
     vendor = software_info.get("vendor", "")
     product = software_info.get("product", "")
+    use_retry_model = state.get("audit_result", {}).get("restart", False)
 
     search_query = f"search_query: {product}"
     query_embedding = (
@@ -162,7 +164,7 @@ async def find_product_matches(state: WorkflowState):
     )
 
     completion_function, model_args, parse_response_function = get_ai_client(
-        ProductMatchPydantic, system_prompt, formatted_user_prompt
+        ProductMatchPydantic, system_prompt, formatted_user_prompt, use_retry_model
     )
 
     with log_execution_time(logger, f"Finding Product Matches for {software_alias}"):

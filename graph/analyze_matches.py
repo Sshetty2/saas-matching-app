@@ -8,48 +8,43 @@ logger = configure_logging()
 
 system_prompt = dedent(
     """
-    We are trying to match software alias names to CPE (Common Platform Enumeration) records.
-    Your goal is to identify the best possible CPE match and highlight any alternative matches that could be relevant.
-    Please return the ID for the CPE and not the CPE record itself.
+    We are matching software alias names to CPE (Common Platform Enumeration) records. Your task is to identify the best possible CPE match and highlight any alternative matches that could be relevant. Return only the CPE ID for the best match and possible matches, not the full CPE record.
 
-    ### Understanding CPE Matching:
-    - A CPE (Common Platform Enumeration) record uniquely describes software.
-    - CPE 2.3 follows this format: `cpe:<cpe_version>:<part>:<vendor>:<product>:<version>:<update>:<edition>:<language>:<sw_edition>:<target_sw>:<target_hw>:<other>`
-    - CPE records use wildcards (*) to indicate that the CPE can match multiple versions.
+    Understanding CPE Matching:
+    - A CPE record uniquely describes a software product.
+    - CPE records follow this format: cpe:<cpe_version>:<part>:<vendor>:<product>:<version>:<update>:<edition>:<language>:<sw_edition>:<target_sw>:<target_hw>:<other>.
+    - CPE records sometimes contain wildcards (*) to indicate that the CPE can match multiple versions.
+    
+    How to Evaluate Matches:
+    1. Prioritize the exact version from the software alias if available.
+    2. If the exact version from the software alias appears in the CPE records, select it as the best match.
+    3. PREFER WILDCARD (*) VERSIONS FOR UPDATES AND EDITIONS OVER PATCH RELEASES.
+    4. If the software alias specifies a version such as "7.0", select 7.0.* rather than a specific patch release like 7.0.104.
+    5. Prefer "cpe:2.3:a:apache:tomcat:7.0:*:*:*:*:*:*:*" over "cpe:2.3:a:apache:tomcat:7.0.104:*:*:*:*:*:*:*".
+    6. Ensure vendor and product match first before considering version.
+    
+    Example:
+    Prefer "cpe:2.3:a:apache:tomcat:7.0:*:*:*:*:*:*:*"
+    Do not select "cpe:2.3:a:apache:tomcat:7.0.104:*:*:*:*:*:*:*" unless no wildcard version exists.
+    If multiple wildcard-based matches exist, select the most general one.
 
-    ### How to Evaluate Matches:
-    1. Prioritize the Exact Version from the Software Alias (if available)**
-      - If the **exact version from the software alias** appears in the CPE records, select it.
-      - Example: If the alias is **"Apache Tomcat 7.0"** and a CPE exists for `"cpe:2.3:a:apache:tomcat:7.0:*:*:*:*:*:*:*"`, this is the best match.
+    Example:
+    Prefer "cpe:2.3:a:apache:tomcat:7.*:*:*:*:*:*:*:*"
+    Avoid selecting "cpe:2.3:a:apache:tomcat:7.0.2:*:*:*:*:*:*:*" unless no wildcard exists.
+    Select a patch release only if no wildcard version is available.
+    If no 7.0.* wildcard version exists but 7.0.104 is available, select it as a fallback.
 
-    2. Prefer Wildcard (`*`) Versions Over Patch Releases**
-      - If the software alias specifies **`7.0`**, **prefer** `7.0.*` over a **specific patch release** like `7.0.104`.
-      - Example:
-        - **Prefer** `cpe:2.3:a:apache:tomcat:7.0:*:*:*:*:*:*:*`  
-        - **Avoid** `cpe:2.3:a:apache:tomcat:7.0.104:*:*:*:*:*:*:*` unless no wildcard exists.
+    Important Rules:
+    - Wildcards (*) should always be preferred over patch versions.
+    - If an exact version from the software alias exists in CPE, select it.
+    - A match is not valid unless both the vendor and product match.
+    - If no valid match exists, return an empty best match.
+    - Return JSON only with no extra text or explanations.
+    
+    Return only the ID of the CPE and a reasoning statement for the best match and possible matches.
+    If no valid matches exist, return an empty best match.
 
-    3. If Multiple Wildcard Versions Exist, Select the Most General One**
-      - **Prefer** `7.0.*` over `7.0.1`, `7.0.2`, etc.
-      - **Prefer** `7.*` over `7.0.*` if available.
-      - Example:
-        - **Prefer** `cpe:2.3:a:apache:tomcat:7.*:*:*:*:*:*:*:*`
-        - **Avoid** `cpe:2.3:a:apache:tomcat:7.0.2:*:*:*:*:*:*:*` unless no wildcard exists.
-
-    4. Only Select a Patch Release if No Wildcard is Available**
-      - If no `7.0.*` wildcard version exists, but `7.0.104` is available, select it as a fallback.
-
-    5. Ensure Vendor and Product Match First**
-      - A version match is **not valid** unless the **vendor and product match the software alias.**
-      - Example:
-        - **Avoid** choosing `cpe:2.3:a:redhat:tomcat:7.0:*:*:*:*:*:*:*` for `"Apache Tomcat 7.0"`.
-
-    **Important Rules to Follow:**
-    - **Wildcards (`*`) are always better than patch versions.**
-    - **If an exact version from the software alias exists in CPE, select it.**
-    - **Do not assume a version match is valid unless the vendor & product also match.**
-    - **Return JSON only—no extra text or explanations.**
-
-    ### Output Instructions:
+    Output Instructions:
     1. Return the ID of the CPE and your reasoning for the best match and possible matches as per the format below. 
 
     Example Output:
@@ -72,22 +67,21 @@ system_prompt = dedent(
 
 user_prompt = dedent(
     """
-    ### Software Alias Name:
+    Software Alias Name:
     
     "{software_alias}"
 
-    ### Software Info:
+    Software Info:
     {formatted_software_info}
 
-    ### CPE Results (Top Matches from Vector Search):
+    CPE Results (Top Matches from Vector Search):
     {cpe_results}
 
-    ### Task:
+    Task:
     - Identify the **best** matching CPE record.
     - List **other possible matches** with explanations.
     - RETURN THE ID OF THE CPE AND NOT THE CPE RECORD ITSELF.
 
-    **Return JSON only. No extra text.**
     """
 )
 
@@ -110,8 +104,9 @@ def find_cpe_by_id(cpe_results, db_id):
 
 async def analyze_matches(state: WorkflowState) -> WorkflowState:
     cpe_results = state.get("cpe_results", [])
+    exact_match = state.get("exact_match", {})
 
-    if not cpe_results:
+    if not cpe_results or exact_match:
         return state
 
     software_alias = state.get("software_alias", "")
@@ -125,10 +120,6 @@ async def analyze_matches(state: WorkflowState) -> WorkflowState:
         formatted_software_info=formatted_software_info,
         cpe_results=formatted_cpe_results,
     )
-
-    print("User Prompt: ", formatted_user_prompt)
-
-    attempts = state.get("attempts", 0)
 
     with log_execution_time(logger, f"Analyzing Matches for alias: {software_alias}"):
         try:
@@ -145,10 +136,6 @@ async def analyze_matches(state: WorkflowState) -> WorkflowState:
             best_match = result.get("best_match", {})
             possible_matches = result.get("possible_matches", [])
 
-            print(f"Best Match: {best_match}")
-            print(f"Possible Matches: {possible_matches}")
-
-            # LLM has difficulty returning the cpe_id, so we need to find it manually based on the id from database
             if best_match and "id" in best_match:
                 best_match_id = best_match["id"]
                 if best_match_id and best_match_id != "N/A":
@@ -158,7 +145,6 @@ async def analyze_matches(state: WorkflowState) -> WorkflowState:
                         **best_match,
                         "cpe_id": cpe_id,
                     }
-                    print(f"New Best Match: {new_best_match}")
                     result["best_match"] = new_best_match
 
             processed_possible_matches = []
@@ -174,7 +160,6 @@ async def analyze_matches(state: WorkflowState) -> WorkflowState:
                                 "cpe_id": cpe_id,
                             }
                             processed_possible_matches.append(new_possible_match)
-                print(f"Processed Possible Matches: {processed_possible_matches}")
                 result["possible_matches"] = processed_possible_matches
 
         except Exception as e:
@@ -187,4 +172,4 @@ async def analyze_matches(state: WorkflowState) -> WorkflowState:
             }
 
     logger.info(f"Analyzed matches for {software_alias}: {result}")
-    return {**state, "cpe_matches": result, "attempts": attempts + 1}
+    return {**state, "cpe_matches": result}

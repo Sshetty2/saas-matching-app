@@ -37,8 +37,7 @@ async def test_redis_vector_search():
     redis_client = redis.Redis(host=redis_host, port=redis_port, db=redis_db)
 
     # Query to search for
-    query = "search_query: apache_tomcat"
-    print(f"Searching for: {query}")
+    query = "search_query: inPcap"
 
     # Encode the query
     query_embedding = model.encode([query])[0].astype(np.float32).tobytes()

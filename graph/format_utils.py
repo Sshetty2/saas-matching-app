@@ -49,6 +49,8 @@ def format_cpe_results(cpe_results):
         version = cpe_result.get("Version", "N/A")
         cpe_id = cpe_result.get("ConfigurationsName", "N/A")
         db_cpe_id = cpe_result.get("CPEConfigurationID", "N/A")
+        updates = cpe_result.get("Updates", "N/A")
+        edition = cpe_result.get("Edition", "N/A")
 
         results.append(
             dedent(
@@ -58,6 +60,8 @@ def format_cpe_results(cpe_results):
                 Vendor: {vendor}
                 Product: {product}
                 Version: {version}
+                Updates: {updates}
+                Edition: {edition}
                 """
             )
         )

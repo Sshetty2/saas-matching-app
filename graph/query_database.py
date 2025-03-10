@@ -22,16 +22,26 @@ def extract_major_minor_version(version):
 def filter_cpe_results(cpe_results, software_version):
     """Filters CPE records based on major and minor version constraints."""
 
+    # Exact match
+    filtered_results = [
+        record for record in cpe_results if record["Version"] == software_version
+    ]
+
+    if filtered_results:
+        return filtered_results
+
     major_version, minor_version = extract_major_minor_version(software_version)
 
-    if not major_version or len(cpe_results) < 50:
+    # Major version match
+    if not major_version:
         return cpe_results
 
     filtered_results = [
         record for record in cpe_results if record["Version"].startswith(major_version)
     ]
 
-    if len(filtered_results) > 100 and minor_version:
+    # Minor version match first digit
+    if filtered_results and minor_version:
         first_digit_minor = minor_version[0]
         filtered_results = [
             record
@@ -39,7 +49,10 @@ def filter_cpe_results(cpe_results, software_version):
             if re.match(rf"^{major_version}\.{first_digit_minor}", record["Version"])
         ]
 
-    return filtered_results
+    if filtered_results:
+        return filtered_results
+
+    return cpe_results
 
 
 def execute_query(query, params, db_connection):
@@ -70,7 +83,7 @@ def query_database(state: WorkflowState) -> WorkflowState:
     placeholders = ", ".join(["?"] * len(matched_products_without_vendor))
 
     query = f"""
-        SELECT Product, Vendor, Version, ConfigurationsName, CPEConfigurationID
+        SELECT Product, Vendor, Version, ConfigurationsName, CPEConfigurationID, Updates, Edition
         FROM tb_CPEConfiguration
         WHERE Product IN ({placeholders})
     """
@@ -91,6 +104,13 @@ def query_database(state: WorkflowState) -> WorkflowState:
         logger.info(
             f"Queried CPE Database for {software_alias} and matched products: {matched_products_without_vendor} with {len(filtered_results)} filtered records"
         )
+
+        if len(filtered_results) == 1 and version == filtered_results[0].get("Version"):
+            return {
+                **state,
+                "exact_match": filtered_results[0].get("ConfigurationsName"),
+                "info": "Exact match found",
+            }
 
         return {
             **state,

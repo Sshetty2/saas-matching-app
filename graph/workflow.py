@@ -6,6 +6,7 @@ from graph.parse_alias import parse_alias
 from graph.query_database import query_database
 from graph.analyze_matches import analyze_matches
 from graph.find_product_matches import find_product_matches
+from graph.audit_workflow import audit_workflow
 from logging_config import log_execution_time, configure_logging
 import asyncio
 import tracemalloc
@@ -22,18 +23,15 @@ max_concurrent_workflows = settings.execution.max_concurrent_workflows
 workflow_semaphore = asyncio.Semaphore(max_concurrent_workflows)
 
 
-def should_restart_workflow(state) -> Literal["parse_alias", END]:
-    cpe_matches = state.get("cpe_matches", {})
-    best_match = cpe_matches.get("best_match", {})
+def should_restart_workflow(state) -> Literal["find_product_matches", END]:
+    audit_result = state.get("audit_result", {})
+    restart = audit_result.get("restart", False)
     attempts = state.get("attempts", 0)
-
-    # TODO: REMOVE THIS
-    return END
 
     if attempts > retry_attempts:
         return END
-    if not best_match:
-        return "parse_alias"
+    if restart:
+        return "find_product_matches"
     else:
         return END
 
@@ -45,15 +43,14 @@ async def workflow():
     workflow.add_node("find_product_matches", find_product_matches)
     workflow.add_node("query_database", query_database)
     workflow.add_node("analyze_matches", analyze_matches)
+    workflow.add_node("audit_workflow", audit_workflow)
 
     workflow.add_edge(START, "parse_alias")
-
-    # workflow.add_conditional_edges("parse_alias", should_try_reparse)
-
     workflow.add_edge("parse_alias", "find_product_matches")
     workflow.add_edge("find_product_matches", "query_database")
     workflow.add_edge("query_database", "analyze_matches")
-    workflow.add_conditional_edges("analyze_matches", should_restart_workflow)
+    workflow.add_edge("analyze_matches", "audit_workflow")
+    workflow.add_conditional_edges("audit_workflow", should_restart_workflow)
 
     return workflow.compile()
 
@@ -68,13 +65,15 @@ async def run_workflow(software_alias: str):
             "software_alias": software_alias,
             "software_info": {"product": "", "vendor": "", "version": ""},
             "cpe_results": [],
-            "cpe_matches": {"best_match": None, "possible_matches": []},
+            "cpe_matches": {"best_match": {}, "possible_matches": []},
             "matched_products": [],
             "product_search_results": [],
             "error": None,
             "info": None,
             "parse_results": [],
-            "retries": 0,
+            "exact_match": {},
+            "audit_result": {"restart": False, "reasoning": ""},
+            "attempts": 0,
         }
 
         try:
